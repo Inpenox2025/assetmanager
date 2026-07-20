@@ -1419,7 +1419,8 @@ class App {
      DOCUMENT UPLOADS, EDITING & SEPARATE INPUT FIELDS
      ========================================================== */
   openDocUploadModal(menuKey, categories) {
-    this.editingDocId = null;
+    this.activeModalMenuKey = menuKey;
+    this.editingDocId = null; // Always reset for new entries; editDoc will restore this after calling us
     document.getElementById('docModalTitle').innerText = 'Upload Documents & Log Entry';
     document.getElementById('docCategorySelect').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
     document.getElementById('docAmountInput').value = '';
@@ -1568,8 +1569,11 @@ class App {
     const doc = this.documents.find(d => d.id === docId);
     if (!doc) return;
 
+    // Set editingDocId BEFORE calling openDocUploadModal (which previously wiped it)
     this.editingDocId = docId;
     this.openDocUploadModal(doc.menu_key, [doc.category]);
+    // Restore editing state after modal open (which resets it)
+    this.editingDocId = docId;
     document.getElementById('docModalTitle').innerText = `Edit Document Entry #${doc.id}`;
 
     let formattedDate = doc.doc_date;
@@ -1687,31 +1691,33 @@ class App {
     const docDate = document.getElementById('docDateInput').value;
     const amount = parseFloat(document.getElementById('docAmountInput').value) || 0;
 
+    // Use activeModalMenuKey (set when modal opens) so editing from dashboard or any page works correctly
+    const modalMenuKey = this.activeModalMenuKey || this.currentMenu;
     const metadata = {};
-    if (this.currentMenu === 'office' && category === 'Guest Maintenance') {
+    if (modalMenuKey === 'office' && category === 'Guest Maintenance') {
       metadata.guest_name = document.getElementById('guestName')?.value || '';
       metadata.hotel_amt = parseFloat(document.getElementById('guestHotelAmt')?.value) || 0;
       metadata.food_amt = parseFloat(document.getElementById('guestFoodAmt')?.value) || 0;
       metadata.others_amt = parseFloat(document.getElementById('guestOthersAmt')?.value) || 0;
-    } else if (this.currentMenu === 'travel') {
+    } else if (modalMenuKey === 'travel') {
       metadata.person_name = document.getElementById('travelPerson')?.value || '';
       metadata.designation = document.getElementById('travelDesignation')?.value || '';
       metadata.boarding = document.getElementById('travelBoarding')?.value || '';
       metadata.destination = document.getElementById('travelDestination')?.value || '';
-    } else if (this.currentMenu === 'property') {
+    } else if (modalMenuKey === 'property') {
       metadata.property_name = document.getElementById('propName')?.value || '';
       metadata.address = document.getElementById('propAddress')?.value || '';
       metadata.seller_name = document.getElementById('propParty')?.value || '';
       metadata.buyer_name = document.getElementById('propParty')?.value || '';
       metadata.left_amount = parseFloat(document.getElementById('propLeftAmt')?.value) || 0;
       metadata.right_amount = parseFloat(document.getElementById('propRightAmt')?.value) || 0;
-    } else if (this.currentMenu === 'advances') {
+    } else if (modalMenuKey === 'advances') {
       metadata.person_name = document.getElementById('advEmpSelect')?.value || '';
       metadata.purpose = document.getElementById('advPurpose')?.value || '';
-    } else if (this.currentMenu === 'bank') {
+    } else if (modalMenuKey === 'bank') {
       metadata.bank_name = document.getElementById('bankName')?.value || '';
       metadata.tenure = document.getElementById('bankTenure')?.value || '';
-    } else if (this.currentMenu === 'formalities') {
+    } else if (modalMenuKey === 'formalities') {
       metadata.person_name = document.getElementById('formPerson')?.value || '';
       metadata.phone = document.getElementById('formPhone')?.value || '';
       metadata.purpose = document.getElementById('formPurpose')?.value || '';
@@ -1722,7 +1728,7 @@ class App {
     const payload = {
       id: this.editingDocId,
       company_id: this.currentCompany.id,
-      menu_key: this.currentMenu,
+      menu_key: modalMenuKey,
       category,
       doc_date: docDate,
       amount,
