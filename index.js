@@ -638,6 +638,9 @@ class App {
       case 'dashboard':
         this.renderDashboard();
         break;
+      case 'budget':
+        this.renderBudgetMenu();
+        break;
       case 'itr':
         this.renderGenericMenu('Menu 1: ITR (Income Tax Returns)', 'itr', ['ITR', 'Audit Report', 'Paid Up Capital'], true);
         break;
@@ -670,6 +673,332 @@ class App {
         break;
     }
     this.setupDatePickers();
+  }
+
+  /* ==========================================================
+     BUDGET MANAGER — Date-wise tracking, edit, delete, filters
+     ========================================================== */
+
+  async renderBudgetMenu() {
+    const main = document.getElementById('mainContent');
+    const isSA = this.isSuperAdmin();
+
+    // Load history (filters from state)
+    this.budgetHistory = this.budgetHistory || [];
+    this.budgetFilters = this.budgetFilters || {
+      dateFrom: '',
+      dateTo: '',
+      companyId: isSA ? 'all' : String(this.currentCompany.id)
+    };
+
+    main.innerHTML = `
+      <div class="view-header">
+        <h2 class="view-title">💰 Daily Budget Manager</h2>
+        <div class="view-actions">
+          <button class="action-btn" onclick="app.openBudgetModal()" id="addBudgetBtn">
+            ➕ Set Budget for Date
+          </button>
+          <button class="action-btn secondary" onclick="app.loadBudgetHistory()">
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div style="background:rgba(30,41,59,0.7); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:16px 20px; margin-bottom:20px; display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;">
+        <div class="form-group" style="margin:0; min-width:140px; flex:1;">
+          <label class="form-label">📅 From Date</label>
+          <input type="date" id="budgetFilterFrom" class="form-input" value="${this.budgetFilters.dateFrom}"
+            onchange="app.budgetFilters.dateFrom = this.value">
+        </div>
+        <div class="form-group" style="margin:0; min-width:140px; flex:1;">
+          <label class="form-label">📅 To Date</label>
+          <input type="date" id="budgetFilterTo" class="form-input" value="${this.budgetFilters.dateTo}"
+            onchange="app.budgetFilters.dateTo = this.value">
+        </div>
+        ${isSA ? `
+        <div class="form-group" style="margin:0; min-width:160px; flex:1;">
+          <label class="form-label">🏢 Company (Super Admin)</label>
+          <select id="budgetFilterCompany" class="form-select" onchange="app.budgetFilters.companyId = this.value">
+            <option value="all" ${this.budgetFilters.companyId === 'all' ? 'selected' : ''}>All Companies</option>
+            ${this.companies.map(c => `<option value="${c.id}" ${this.budgetFilters.companyId == c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+          </select>
+        </div>` : ''}
+        <button class="action-btn" style="flex-shrink:0;" onclick="app.loadBudgetHistory()">
+          🔍 Apply Filter
+        </button>
+        <button class="action-btn secondary" style="flex-shrink:0;" onclick="app.clearBudgetFilters()">
+          ✖ Clear
+        </button>
+      </div>
+
+      <!-- Summary Cards -->
+      <div id="budgetSummaryCards" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; margin-bottom:20px;">
+        <div style="text-align:center; color:var(--text-dim); padding:20px;">Loading...</div>
+      </div>
+
+      <!-- History Table -->
+      <div class="table-container">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              ${isSA ? '<th>Company</th>' : ''}
+              <th>Date</th>
+              <th>Set Amount (₹)</th>
+              <th>Carried Over (₹)</th>
+              <th>Total Available (₹)</th>
+              <th>Spent (₹)</th>
+              <th>Remaining (₹)</th>
+              <th>Status</th>
+              <th>Notes</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="budgetHistoryBody">
+            <tr><td colspan="${isSA ? 10 : 9}" style="text-align:center; color:var(--text-muted); padding:30px;">Click Refresh or Apply Filter to load data</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Budget Entry Modal -->
+      <div class="modal-overlay" id="budgetEntryModal">
+        <div class="modal-card" style="max-width:500px;">
+          <div class="modal-header">
+            <h3 class="modal-title" id="budgetModalTitle">Set Budget for Date</h3>
+            <button class="modal-close" onclick="app.closeModal('budgetEntryModal')">&times;</button>
+          </div>
+          <form onsubmit="app.handleBudgetEntrySubmit(event)">
+            ${isSA ? `
+            <div class="form-group">
+              <label class="form-label">Company *</label>
+              <select id="budgetModalCompany" class="form-select" required>
+                ${this.companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+              </select>
+            </div>` : `<input type="hidden" id="budgetModalCompany" value="${this.currentCompany.id}">`}
+            <div class="form-group">
+              <label class="form-label">Date *</label>
+              <input type="date" id="budgetModalDate" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Set Maintenance Amount (₹) *</label>
+              <input type="number" step="0.01" min="0" id="budgetModalAmount" class="form-input" placeholder="e.g. 50000" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notes (optional)</label>
+              <input type="text" id="budgetModalNotes" class="form-input" placeholder="e.g. Festival season budget">
+            </div>
+            <input type="hidden" id="budgetModalEditId" value="">
+            <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:8px;">
+              <button type="button" class="action-btn secondary" onclick="app.closeModal('budgetEntryModal')">Cancel</button>
+              <button type="submit" class="action-btn">💾 Save Budget</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    await this.loadBudgetHistory();
+  }
+
+  clearBudgetFilters() {
+    this.budgetFilters = {
+      dateFrom: '',
+      dateTo: '',
+      companyId: this.isSuperAdmin() ? 'all' : String(this.currentCompany.id)
+    };
+    this.renderBudgetMenu();
+  }
+
+  async loadBudgetHistory() {
+    const isSA = this.isSuperAdmin();
+    const filters = this.budgetFilters || {};
+    const companyId = filters.companyId || (isSA ? 'all' : String(this.currentCompany.id));
+
+    let url = `/api/budget?action=history&company_id=${companyId}`;
+    if (filters.dateFrom) url += `&date_from=${filters.dateFrom}`;
+    if (filters.dateTo)   url += `&date_to=${filters.dateTo}`;
+
+    try {
+      const res  = await fetch(url);
+      const data = await res.json();
+      if (!data.success) { this.showToast('Failed to load budget history', 'error'); return; }
+
+      this.budgetHistory = data.history || [];
+      this._renderBudgetTable();
+      this._renderBudgetSummaryCards();
+    } catch (e) {
+      console.error(e);
+      this.showToast('Network error loading budget history');
+    }
+  }
+
+  _renderBudgetSummaryCards() {
+    const container = document.getElementById('budgetSummaryCards');
+    if (!container) return;
+
+    const rows = this.budgetHistory || [];
+    const totalSet       = rows.reduce((s, r) => s + (parseFloat(r.set_amount) || 0), 0);
+    const totalSpent     = rows.reduce((s, r) => s + (parseFloat(r.total_spent) || 0), 0);
+    const totalRemaining = rows.reduce((s, r) => s + (parseFloat(r.remaining_amount) || 0), 0);
+    const totalAvail     = rows.reduce((s, r) => s + (parseFloat(r.total_available) || 0), 0);
+    const fmt = v => `₹ ${parseFloat(v||0).toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+
+    container.innerHTML = [
+      { label: 'Total Entries',        value: rows.length,       color: '#818cf8', icon: '📋' },
+      { label: 'Total Budget Set',     value: fmt(totalSet),     color: '#818cf8', icon: '💰' },
+      { label: 'Total Available',      value: fmt(totalAvail),   color: '#60a5fa', icon: '🏦' },
+      { label: 'Total Spent',          value: fmt(totalSpent),   color: '#f87171', icon: '💸' },
+      { label: 'Total Remaining',      value: fmt(totalRemaining), color: '#34d399', icon: '✅' },
+    ].map(card => `
+      <div style="background:rgba(30,41,59,0.85); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:16px 18px;">
+        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">${card.icon} ${card.label}</div>
+        <div style="font-size:1.3rem; font-weight:800; color:${card.color}; margin-top:4px;">${card.value}</div>
+      </div>
+    `).join('');
+  }
+
+  _renderBudgetTable() {
+    const tbody = document.getElementById('budgetHistoryBody');
+    if (!tbody) return;
+    const isSA = this.isSuperAdmin();
+    const rows = this.budgetHistory || [];
+    const fmt  = v => `₹ ${parseFloat(v||0).toLocaleString('en-IN', {minimumFractionDigits:2})}`;
+    const cols = isSA ? 10 : 9;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center;color:var(--text-muted);padding:30px;">No budget records found for the selected filters.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      const spent     = parseFloat(r.total_spent) || 0;
+      const avail     = parseFloat(r.total_available) || 0;
+      const remaining = parseFloat(r.remaining_amount) || 0;
+      const pct       = avail > 0 ? Math.min(100, Math.round((spent / avail) * 100)) : 0;
+      const statusColor = pct >= 90 ? '#f87171' : pct >= 60 ? '#fbbf24' : '#34d399';
+      const statusLabel = pct >= 90 ? '🔴 Critical' : pct >= 60 ? '🟡 Moderate' : '🟢 Healthy';
+
+      return `
+        <tr>
+          ${isSA ? `<td><strong>${r.company_name || '—'}</strong></td>` : ''}
+          <td><strong>${r.budget_date ? String(r.budget_date).split('T')[0] : '—'}</strong></td>
+          <td style="color:#818cf8; font-weight:700;">${fmt(r.set_amount)}</td>
+          <td style="color:#60a5fa;">${fmt(r.carried_over_amount)}</td>
+          <td style="font-weight:700;">${fmt(r.total_available)}</td>
+          <td style="color:#f87171; font-weight:700;">${fmt(r.total_spent)}</td>
+          <td style="color:${remaining >= 0 ? '#34d399' : '#f87171'}; font-weight:700;">${fmt(remaining)}</td>
+          <td>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              <span style="color:${statusColor}; font-size:0.8rem; font-weight:600;">${statusLabel}</span>
+              <div style="background:rgba(255,255,255,0.1); border-radius:4px; height:6px; width:80px; overflow:hidden;">
+                <div style="background:${statusColor}; height:100%; width:${pct}%; transition:width 0.3s;"></div>
+              </div>
+              <span style="font-size:0.7rem; color:var(--text-muted);">${pct}% used</span>
+            </div>
+          </td>
+          <td style="font-size:0.82rem; color:var(--text-muted); max-width:140px; word-break:break-word;">${r.notes || '<span style="color:var(--text-dim);">—</span>'}</td>
+          <td>
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="action-btn secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="app.editBudgetEntry(${r.id})">✏️ Edit</button>
+              ${isSA ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.78rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteBudgetEntry(${r.id})">🗑️ Delete</button>` : ''}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  openBudgetModal(editData = null) {
+    const isSA  = this.isSuperAdmin();
+    const today = new Date().toISOString().split('T')[0];
+
+    const titleEl  = document.getElementById('budgetModalTitle');
+    const dateEl   = document.getElementById('budgetModalDate');
+    const amtEl    = document.getElementById('budgetModalAmount');
+    const notesEl  = document.getElementById('budgetModalNotes');
+    const editIdEl = document.getElementById('budgetModalEditId');
+    const compEl   = document.getElementById('budgetModalCompany');
+
+    if (!dateEl) return;
+
+    if (editData) {
+      if (titleEl) titleEl.innerText = `Edit Budget — ${String(editData.budget_date).split('T')[0]}`;
+      dateEl.value   = String(editData.budget_date).split('T')[0];
+      dateEl.readOnly = true;
+      if (amtEl)    amtEl.value    = editData.set_amount || 0;
+      if (notesEl)  notesEl.value  = editData.notes || '';
+      if (editIdEl) editIdEl.value = editData.id;
+      if (compEl && isSA) compEl.value = editData.company_id;
+    } else {
+      if (titleEl)  titleEl.innerText = 'Set Budget for Date';
+      dateEl.value   = today;
+      dateEl.readOnly = false;
+      if (amtEl)    amtEl.value    = '';
+      if (notesEl)  notesEl.value  = '';
+      if (editIdEl) editIdEl.value = '';
+    }
+
+    this.openModal('budgetEntryModal');
+  }
+
+  editBudgetEntry(id) {
+    const row = (this.budgetHistory || []).find(r => r.id === id);
+    if (!row) return;
+    this.openBudgetModal(row);
+  }
+
+  async deleteBudgetEntry(id) {
+    if (!this.isSuperAdmin()) { alert('Only Super Admin can delete budget entries.'); return; }
+    if (!confirm('Delete this budget entry? This cannot be undone.')) return;
+    try {
+      const res  = await fetch(`/api/budget?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('Budget entry deleted');
+        await this.loadBudgetHistory();
+      } else {
+        this.showToast(data.error || 'Delete failed');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async handleBudgetEntrySubmit(e) {
+    e.preventDefault();
+    const editId    = document.getElementById('budgetModalEditId')?.value;
+    const companyId = document.getElementById('budgetModalCompany')?.value || this.currentCompany.id;
+    const date      = document.getElementById('budgetModalDate')?.value;
+    const amount    = parseFloat(document.getElementById('budgetModalAmount')?.value) || 0;
+    const notes     = document.getElementById('budgetModalNotes')?.value || '';
+
+    const isEditing = Boolean(editId);
+    const method    = isEditing ? 'PUT' : 'POST';
+    const payload   = isEditing
+      ? { id: parseInt(editId), set_amount: amount, notes }
+      : { company_id: companyId, budget_date: date, set_amount: amount, notes };
+
+    try {
+      const res  = await fetch('/api/budget', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(isEditing ? 'Budget entry updated!' : 'Budget set successfully!');
+        this.closeModal('budgetEntryModal');
+        // Refresh today's budget bar if date is today
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (!date || date === todayStr) await this.loadBudget();
+        await this.loadBudgetHistory();
+      } else {
+        this.showToast(data.error || 'Save failed', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      this.showToast('Network error');
+    }
   }
 
   /* Executive Overview Dashboard Renderer */

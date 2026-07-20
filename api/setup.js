@@ -59,10 +59,14 @@ module.exports = async function handler(req, res) {
         carried_over_amount DECIMAL(12,2) DEFAULT 0.00,
         total_spent DECIMAL(12,2) DEFAULT 0.00,
         remaining_amount DECIMAL(12,2) DEFAULT 0.00,
+        notes TEXT DEFAULT '',
         created_at TIMESTAMP DEFAULT NOW(),
         CONSTRAINT company_date_uniq UNIQUE(company_id, budget_date)
       )
     `;
+    // Safely add notes column to existing tables
+    await sql`ALTER TABLE daily_budgets ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''`;
+
 
     // 3. Documents Table
     await sql`

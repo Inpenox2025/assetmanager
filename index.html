@@ -55,13 +55,13 @@
           🚀 Login to Portal
         </button>
 
-        <!-- <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.82rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.82rem;">
           <span style="color: var(--text-muted);">Super Admin: <code style="color:#34d399;">superadmin</code> / <code
               style="color:#34d399;">admin123</code></span>
           <button type="button" onclick="app.initializeDatabase()"
             style="background: none; border: none; color: #818cf8; text-decoration: underline; cursor: pointer; font-weight: 600;">⚡
             Initialize DB & Tables</button>
-        </div> -->
+        </div>
 
       </form>
     </div>
@@ -161,6 +161,10 @@
         <div class="nav-item active" data-menu="dashboard" onclick="app.switchMenu('dashboard')">
           <span class="nav-icon">📈</span> Dashboard
         </div>
+        <div class="nav-item" data-menu="budget" onclick="app.switchMenu('budget')" style="background: linear-gradient(90deg, rgba(16,185,129,0.15), rgba(16,185,129,0.03)); border-left: 3px solid rgba(16,185,129,0.4);">
+          <span class="nav-icon">💰</span> Daily Budget Manager
+        </div>
+        <div class="sidebar-divider"></div>
         <div class="nav-item" data-menu="itr" onclick="app.switchMenu('itr')">
           <span class="nav-icon">📊</span> Menu 1: ITR
         </div>
