@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Company Asset & Document Management System</title>
+  <link rel="stylesheet" href="index.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top 15-Day Alert Scrolling Ticker -->
+  <div class="ticker-wrap">
+    <div class="ticker" id="gstAlertTicker">
+      <div class="ticker-item">🔔 <strong>GST FILING ALERT:</strong> Next GST Return filing due in 15 days! Please upload GST Returns & Paid receipts.</div>
+      <div class="ticker-item">📌 <strong>DAILY BUDGET REMINDER:</strong> Set today's maintenance budget balance. Unspent balance carries over automatically.</div>
+      <div class="ticker-item">🚗 <strong>VEHICLE SERVICE ALERT:</strong> Vehicles approaching 10,000 KM driven threshold require service update & document log.</div>
+    </div>
+  </div>
+
+  <!-- Header Bar -->
+  <header class="app-header">
+    <div class="header-brand">
+      <img id="headerCompanyLogo" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>" class="company-logo-img" alt="Company Logo">
+      <div class="company-info">
+        <div class="company-name">
+          <span id="headerCompanyName">Acme Corporation</span>
+          <span class="gst-badge" id="headerCompanyGst">GST: 29ABCDE1234F1Z5</span>
+        </div>
+      </div>
+    </div>
+    <button class="super-admin-btn" onclick="app.openSuperAdminModal()">
+      ⚙️ Super Admin / Switch Company
+    </button>
+  </header>
+
+  <!-- Daily Maintenance Budget Widget Bar -->
+  <div class="budget-bar">
+    <div class="budget-widgets">
+      <div class="budget-card">
+        <span class="budget-label">Set Maintenance Today</span>
+        <span class="budget-value set" id="budgetSetToday">₹ 0.00</span>
+      </div>
+      <div class="budget-card">
+        <span class="budget-label">Carried Over (Prev Days)</span>
+        <span class="budget-value" style="color: #60a5fa;" id="budgetCarriedOver">₹ 0.00</span>
+      </div>
+      <div class="budget-card">
+        <span class="budget-label">Total Spent Today</span>
+        <span class="budget-value spent" id="budgetSpentToday">₹ 0.00</span>
+      </div>
+      <div class="budget-card">
+        <span class="budget-label">Remaining Balance Today</span>
+        <span class="budget-value remaining" id="budgetRemainingToday">₹ 0.00</span>
+      </div>
+    </div>
+    <form class="set-budget-form" onsubmit="app.handleSetBudget(event)">
+      <input type="number" step="0.01" min="0" id="setBudgetInput" class="budget-input" placeholder="Set Budget ₹" required>
+      <button type="submit" class="action-btn">Set Maintenance</button>
+    </form>
+  </div>
+
+  <!-- Main Workspace Layout -->
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="nav-item active" data-menu="itr" onclick="app.switchMenu('itr')">
+        <span class="nav-icon">📊</span> Menu 1: ITR
+      </div>
+      <div class="nav-item" data-menu="gst" onclick="app.switchMenu('gst')">
+        <span class="nav-icon">🧾</span> Menu 2: GST
+      </div>
+      <div class="nav-item" data-menu="bank" onclick="app.switchMenu('bank')">
+        <span class="nav-icon">🏦</span> Menu 3: Bank
+      </div>
+      <div class="nav-item" data-menu="office" onclick="app.switchMenu('office')">
+        <span class="nav-icon">🏢</span> Menu 4: Office
+      </div>
+      <div class="nav-item" data-menu="employees" onclick="app.switchMenu('employees')">
+        <span class="nav-icon">👥</span> Menu 5: Employees
+      </div>
+      <div class="nav-item" data-menu="vehicles" onclick="app.switchMenu('vehicles')">
+        <span class="nav-icon">🚗</span> Menu 6: Vehicles
+      </div>
+      <div class="nav-item" data-menu="travel" onclick="app.switchMenu('travel')">
+        <span class="nav-icon">✈️</span> Menu 7: Travelling Allowance
+      </div>
+      <div class="nav-item" data-menu="property" onclick="app.switchMenu('property')">
+        <span class="nav-icon">🏘️</span> Menu 8: Property Sales & Purchases
+      </div>
+      <div class="nav-item" data-menu="advances" onclick="app.switchMenu('advances')">
+        <span class="nav-icon">💵</span> Menu 9: Advances
+      </div>
+      <div class="nav-item" data-menu="formalities" onclick="app.switchMenu('formalities')">
+        <span class="nav-icon">📋</span> Menu 10: Formalities
+      </div>
+    </aside>
+
+    <!-- Main Workspace Container -->
+    <main class="main-content" id="mainContent">
+      <!-- Dynamic Content Rendered by app.js -->
+    </main>
+  </div>
+
+  <!-- Super Admin Companies Modal -->
+  <div class="modal-overlay" id="superAdminModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Super Admin - Manage Companies</h3>
+        <button class="modal-close" onclick="app.closeModal('superAdminModal')">&times;</button>
+      </div>
+      <form onsubmit="app.handleCreateCompany(event)" style="display:flex; flex-direction:column; gap:12px;">
+        <h4>Add New Company</h4>
+        <div class="form-group">
+          <label class="form-label">Company Name *</label>
+          <input type="text" id="newCompanyName" class="form-input" placeholder="e.g. Inpenox Technologies" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">GST Number *</label>
+          <input type="text" id="newCompanyGst" class="form-input" placeholder="e.g. 29AAAAA0000A1Z5" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Company Logo (Optional)</label>
+          <input type="file" id="newCompanyLogo" accept="image/*" class="form-input">
+        </div>
+        <button type="submit" class="action-btn">Create Company</button>
+      </form>
+      <hr style="border-color: var(--border-color); margin: 10px 0;">
+      <h4>Existing Companies</h4>
+      <div id="companyListContainer" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </div>
+  </div>
+
+  <!-- Universal Document Entry Modal -->
+  <div class="modal-overlay" id="docUploadModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="docModalTitle">Upload Documents</h3>
+        <button class="modal-close" onclick="app.closeModal('docUploadModal')">&times;</button>
+      </div>
+      <form id="docUploadForm" onsubmit="app.handleDocUploadSubmit(event)">
+        <div class="form-group">
+          <label class="form-label">Category *</label>
+          <select id="docCategorySelect" class="form-select" required></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Date (Current or Future Date Only) *</label>
+          <input type="date" id="docDateInput" class="form-input" required>
+          <span class="date-hint">⚠️ Date defaults to today. Past dates are strictly disallowed.</span>
+        </div>
+
+        <!-- Dynamic Menu Specific Input Fields -->
+        <div id="dynamicFormFields"></div>
+
+        <div class="form-group">
+          <label class="form-label">Amount (₹) - Deducted from Daily Maintenance</label>
+          <input type="number" step="0.01" id="docAmountInput" class="form-input" placeholder="0.00">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Select Files (Multiple Images, TXT, PDF, Word DOCX supported)</label>
+          <input type="file" id="docFileInput" multiple accept="image/*,.txt,.pdf,.doc,.docx" class="form-input">
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+          <button type="button" class="action-btn secondary" onclick="app.closeModal('docUploadModal')">Cancel</button>
+          <button type="submit" class="action-btn">Save Entry & Deduct Maintenance</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Vehicle Add & Service Update Modal -->
+  <div class="modal-overlay" id="vehicleModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="vehicleModalTitle">Vehicle Management</h3>
+        <button class="modal-close" onclick="app.closeModal('vehicleModal')">&times;</button>
+      </div>
+      <form id="vehicleForm" onsubmit="app.handleVehicleSubmit(event)">
+        <input type="hidden" id="vehAction" value="create">
+        <input type="hidden" id="vehId" value="">
+
+        <div id="vehCreateFields">
+          <div class="form-group">
+            <label class="form-label">Vehicle Name *</label>
+            <input type="text" id="vehName" class="form-input" placeholder="e.g. Mahindra Thar / Tata Ace">
+          </div>
+          <div class="form-group">
+            <label class="form-label">RC Number *</label>
+            <input type="text" id="vehRc" class="form-input" placeholder="e.g. KA-01-AB-1234">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Total KMs Driven *</label>
+          <input type="number" id="vehKms" class="form-input" placeholder="e.g. 10500" required>
+        </div>
+
+        <div id="vehServiceFields">
+          <div class="form-group">
+            <label class="form-label">Service Date *</label>
+            <input type="date" id="vehServiceDate" class="form-input">
+            <span class="date-hint">⚠️ Current or future date only.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Service Amount (₹) - Deducted from Maintenance</label>
+            <input type="number" step="0.01" id="vehServiceAmt" class="form-input" placeholder="0.00">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tax Paid Status</label>
+          <select id="vehTaxStatus" class="form-select">
+            <option value="Paid">Paid</option>
+            <option value="Not Paid">Not Paid</option>
+          </select>
+        </div>
+        <div class="form-group" id="vehTaxAmtGroup">
+          <label class="form-label">Tax Amount (₹)</label>
+          <input type="number" step="0.01" id="vehTaxAmt" class="form-input" placeholder="0.00">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description / Service Documents</label>
+          <textarea id="vehDesc" class="form-textarea" rows="2"></textarea>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+          <button type="button" class="action-btn secondary" onclick="app.closeModal('vehicleModal')">Cancel</button>
+          <button type="submit" class="action-btn">Save Vehicle Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Employee CRUD Modal -->
+  <div class="modal-overlay" id="employeeModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Employee HR Details</h3>
+        <button class="modal-close" onclick="app.closeModal('employeeModal')">&times;</button>
+      </div>
+      <form onsubmit="app.handleEmployeeSubmit(event)">
+        <div class="form-group">
+          <label class="form-label">Employee Name *</label>
+          <input type="text" id="empName" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Designation *</label>
+          <input type="text" id="empDesignation" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monthly Salary (₹) *</label>
+          <input type="number" step="0.01" id="empSalary" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" id="empEmail" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="text" id="empPhone" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Joining Date *</label>
+          <input type="date" id="empJoined" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Demographic Basic Details</label>
+          <textarea id="empDemographic" class="form-textarea" rows="2" placeholder="Address, Emergency Contact, DOB, etc."></textarea>
+        </div>
+        <button type="submit" class="action-btn">Register Employee</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Universal Document Viewer & Editor Modal -->
+  <div class="modal-overlay" id="docViewerModal">
+    <div class="modal-card doc-viewer-modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="viewerModalTitle">Document Preview & Editor</h3>
+        <button class="modal-close" onclick="app.closeModal('docViewerModal')">&times;</button>
+      </div>
+      <div class="doc-preview-area" id="docPreviewArea"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span id="docMetaInfo" style="color:var(--text-muted); font-size:0.85rem;"></span>
+        <div style="display:flex; gap:10px;">
+          <a id="docDownloadBtn" download class="action-btn secondary" href="#">Download File</a>
+          <button type="button" class="action-btn" onclick="app.saveDocEdit()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="index.js"></script>
+</body>
+</html>

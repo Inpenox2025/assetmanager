@@ -1,0 +1,27 @@
+{
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/api/setup", "destination": "/api/setup" },
+    { "source": "/api/companies", "destination": "/api/companies" },
+    { "source": "/api/companies/:id", "destination": "/api/companies?id=:id" },
+    { "source": "/api/documents", "destination": "/api/documents" },
+    { "source": "/api/documents/:id", "destination": "/api/documents?id=:id" },
+    { "source": "/api/budget", "destination": "/api/budget" },
+    { "source": "/api/employees", "destination": "/api/employees" },
+    { "source": "/api/employees/:id", "destination": "/api/employees?id=:id" },
+    { "source": "/api/vehicles", "destination": "/api/vehicles" },
+    { "source": "/api/vehicles/:id", "destination": "/api/vehicles?id=:id" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization" }
+      ]
+    }
+  ]
+}
