@@ -20,11 +20,11 @@
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Multi-Company Asset & Document Management</p>
       </div>
 
-      <!-- Clean Login Form -->
+      <!-- Clean Login Form (No Credentials Displayed) -->
       <form id="loginForm" onsubmit="app.handleLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 14px;" autocomplete="off">
         <div class="form-group">
           <label class="form-label">Username *</label>
-          <input type="text" id="loginUsername" class="form-input" placeholder="e.g. superadmin" value="" required autocomplete="username">
+          <input type="text" id="loginUsername" class="form-input" placeholder="Enter Username" value="" required autocomplete="username">
         </div>
 
         <div class="form-group">
@@ -46,11 +46,6 @@
         <button type="submit" class="action-btn" style="width: 100%; justify-content: center; padding: 12px; font-size: 1rem; margin-top: 6px;">
           🚀 Login to Portal
         </button>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.82rem;">
-          <span style="color: var(--text-muted);">Super Admin: <code style="color:#34d399;">superadmin</code> / <code style="color:#34d399;">admin123</code></span>
-          <button type="button" onclick="app.initializeDatabase()" style="background: none; border: none; color: #818cf8; text-decoration: underline; cursor: pointer; font-weight: 600;">⚡ Initialize DB & Tables</button>
-        </div>
       </form>
     </div>
   </div>

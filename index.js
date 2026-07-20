@@ -101,7 +101,7 @@ class App {
           return;
         }
       }
-      alert('Invalid username or password. Default Super Admin: superadmin / admin123');
+      alert('Invalid username or password.');
     }
   }
 
@@ -768,7 +768,7 @@ class App {
                 <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
                 <td><span class="card-badge badge-info" style="text-transform:uppercase;">${d.menu_key}</span></td>
                 <td><span class="card-badge badge-warning">${d.category}</span></td>
-                <td>${d.metadata?.purpose || d.metadata?.person_name || d.category}</td>
+                <td>${d.metadata?.property_name || d.metadata?.person_name || d.metadata?.bank_name || d.metadata?.purpose || d.category}</td>
                 <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                 <td>
                   ${(d.files || []).map(f => `
@@ -792,10 +792,55 @@ class App {
     `;
   }
 
-  /* Generic Document Menu Renderer */
+  /* Generic Document Menu Renderer with Clean Separated Columns per Module */
   renderGenericMenu(title, menuKey, categories, isFinancialYearFilter = false) {
     const main = document.getElementById('mainContent');
     const docs = this.documents.filter(d => d.menu_key === menuKey);
+
+    let tableHeaders = '';
+    if (menuKey === 'travel') {
+      tableHeaders = `
+        <th>Date</th>
+        <th>Category</th>
+        <th>Person Name</th>
+        <th>Designation</th>
+        <th>Boarding (Start)</th>
+        <th>Destination (End)</th>
+        <th>Amount (₹)</th>
+        <th>Attached Documents</th>
+        <th>Actions</th>
+      `;
+    } else if (menuKey === 'formalities') {
+      tableHeaders = `
+        <th>Date</th>
+        <th>Category</th>
+        <th>Person Name</th>
+        <th>Phone Number</th>
+        <th>Purpose / Details</th>
+        <th>Amount (₹)</th>
+        <th>Attached Documents</th>
+        <th>Actions</th>
+      `;
+    } else if (menuKey === 'bank') {
+      tableHeaders = `
+        <th>Date</th>
+        <th>Category</th>
+        <th>Bank Name</th>
+        <th>Tenure / Loan Period</th>
+        <th>Amount (₹)</th>
+        <th>Attached Documents</th>
+        <th>Actions</th>
+      `;
+    } else {
+      tableHeaders = `
+        <th>Date</th>
+        <th>Category</th>
+        <th>Details / Purpose</th>
+        <th>Amount (₹)</th>
+        <th>Attached Documents</th>
+        <th>Actions</th>
+      `;
+    }
 
     main.innerHTML = `
       <div class="view-header">
@@ -824,38 +869,71 @@ class App {
         <table class="custom-table">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Category</th>
-              <th>Details / Purpose</th>
-              <th>Amount (₹)</th>
-              <th>Attached Documents</th>
-              <th>Actions</th>
+              ${tableHeaders}
             </tr>
           </thead>
           <tbody>
-            ${docs.length === 0 ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">No documents uploaded yet for this module.</td></tr>` : ''}
-            ${docs.map(d => `
-              <tr>
-                <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
-                <td><span class="card-badge badge-info">${d.category}</span></td>
-                <td>${d.metadata?.purpose || d.metadata?.person_name || d.metadata?.bank_name || d.category}</td>
-                <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-                <td>
-                  ${(d.files || []).map(f => `
-                    <span class="doc-pill" onclick="app.viewDocument(${d.id}, ${f.id})">
-                      📄 ${f.file_name}
-                    </span>
-                  `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
-                </td>
-                <td>
-                  <div style="display:flex; gap:6px;">
-                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">View</button>
-                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
-                    ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
-                  </div>
-                </td>
-              </tr>
-            `).join('')}
+            ${docs.length === 0 ? `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">No records uploaded yet for this module.</td></tr>` : ''}
+            ${docs.map(d => {
+              const meta = d.metadata || {};
+              let rowCells = '';
+
+              if (menuKey === 'travel') {
+                rowCells = `
+                  <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
+                  <td><span class="card-badge badge-info">${d.category}</span></td>
+                  <td><strong>${meta.person_name || 'N/A'}</strong></td>
+                  <td>${meta.designation || 'N/A'}</td>
+                  <td>${meta.boarding || 'N/A'}</td>
+                  <td>${meta.destination || 'N/A'}</td>
+                  <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                `;
+              } else if (menuKey === 'formalities') {
+                rowCells = `
+                  <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
+                  <td><span class="card-badge badge-info">${d.category}</span></td>
+                  <td><strong>${meta.person_name || 'N/A'}</strong></td>
+                  <td>${meta.phone || 'N/A'}</td>
+                  <td>${meta.purpose || 'N/A'}</td>
+                  <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                `;
+              } else if (menuKey === 'bank') {
+                rowCells = `
+                  <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
+                  <td><span class="card-badge badge-info">${d.category}</span></td>
+                  <td><strong>${meta.bank_name || 'N/A'}</strong></td>
+                  <td>${meta.tenure || 'N/A'}</td>
+                  <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                `;
+              } else {
+                rowCells = `
+                  <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
+                  <td><span class="card-badge badge-info">${d.category}</span></td>
+                  <td>${meta.purpose || meta.person_name || meta.bank_name || d.category}</td>
+                  <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                `;
+              }
+
+              return `
+                <tr>
+                  ${rowCells}
+                  <td>
+                    ${(d.files || []).map(f => `
+                      <span class="doc-pill" onclick="app.viewDocument(${d.id}, ${f.id})">
+                        📄 ${f.file_name}
+                      </span>
+                    `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
+                  </td>
+                  <td>
+                    <div style="display:flex; gap:6px;">
+                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">View</button>
+                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
+                      ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -888,41 +966,46 @@ class App {
             <tr>
               <th>Date</th>
               <th>Category</th>
-              <th>Breakdown / Details</th>
-              <th>Amount (₹)</th>
+              <th>Guest / Person Name</th>
+              <th>Hotel (₹)</th>
+              <th>Food (₹)</th>
+              <th>Others (₹)</th>
+              <th>Total Amount (₹)</th>
               <th>Documents</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            ${docs.length === 0 ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">No office maintenance entries logged yet.</td></tr>` : ''}
-            ${docs.map(d => `
-              <tr>
-                <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
-                <td><span class="card-badge badge-warning">${d.category}</span></td>
-                <td>
-                  ${d.category === 'Guest Maintenance' ? `
-                    <div>Guest: <strong>${d.metadata?.guest_name || 'N/A'}</strong></div>
-                    <div style="font-size:0.8rem; color:var(--text-muted);">Hotel: ₹${d.metadata?.hotel_amt || 0} | Food: ₹${d.metadata?.food_amt || 0} | Others: ₹${d.metadata?.others_amt || 0}</div>
-                  ` : (d.metadata?.purpose || d.category)}
-                </td>
-                <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-                <td>
-                  ${(d.files || []).map(f => `
-                    <span class="doc-pill" onclick="app.viewDocument(${d.id}, ${f.id})">
-                      📄 ${f.file_name}
-                    </span>
-                  `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
-                </td>
-                <td>
-                  <div style="display:flex; gap:6px;">
-                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">View</button>
-                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
-                    ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
-                  </div>
-                </td>
-              </tr>
-            `).join('')}
+            ${docs.length === 0 ? `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">No office maintenance entries logged yet.</td></tr>` : ''}
+            ${docs.map(d => {
+              const meta = d.metadata || {};
+              const isGuest = d.category === 'Guest Maintenance';
+              return `
+                <tr>
+                  <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
+                  <td><span class="card-badge badge-warning">${d.category}</span></td>
+                  <td>${isGuest ? (meta.guest_name || 'N/A') : (meta.purpose || d.category)}</td>
+                  <td>${isGuest ? `₹${parseFloat(meta.hotel_amt || 0).toLocaleString('en-IN')}` : '-'}</td>
+                  <td>${isGuest ? `₹${parseFloat(meta.food_amt || 0).toLocaleString('en-IN')}` : '-'}</td>
+                  <td>${isGuest ? `₹${parseFloat(meta.others_amt || 0).toLocaleString('en-IN')}` : '-'}</td>
+                  <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                  <td>
+                    ${(d.files || []).map(f => `
+                      <span class="doc-pill" onclick="app.viewDocument(${d.id}, ${f.id})">
+                        📄 ${f.file_name}
+                      </span>
+                    `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
+                  </td>
+                  <td>
+                    <div style="display:flex; gap:6px;">
+                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">View</button>
+                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
+                      ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -1247,7 +1330,7 @@ class App {
     }
   }
 
-  /* Menu 8: Property Sales & Purchases */
+  /* Menu 8: Property Sales & Purchases (Separate Clean Columns) */
   renderPropertyMenu() {
     const main = document.getElementById('mainContent');
     const docs = this.documents.filter(d => d.menu_key === 'property');
@@ -1268,7 +1351,8 @@ class App {
             <tr>
               <th>Date</th>
               <th>Mode</th>
-              <th>Property Name & Address</th>
+              <th>Property Name</th>
+              <th>Property Address</th>
               <th>Seller / Buyer</th>
               <th>Total Amount (₹)</th>
               <th>Left Amount (₹) [Masked]</th>
@@ -1278,7 +1362,7 @@ class App {
             </tr>
           </thead>
           <tbody>
-            ${docs.length === 0 ? `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">No property sales or purchase records added.</td></tr>` : ''}
+            ${docs.length === 0 ? `<tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:30px;">No property sales or purchase records added.</td></tr>` : ''}
             ${docs.map(d => {
               const meta = d.metadata || {};
               const isMasked = this.maskedState[d.id] !== false;
@@ -1288,7 +1372,8 @@ class App {
                 <tr>
                   <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
                   <td><span class="${d.category === 'Sale' ? 'card-badge badge-success' : 'card-badge badge-warning'}">${d.category}</span></td>
-                  <td><strong>${meta.property_name || 'N/A'}</strong><br><span style="font-size:0.8rem; color:var(--text-muted);">${meta.address || ''}</span></td>
+                  <td><strong>${meta.property_name || 'N/A'}</strong></td>
+                  <td>${meta.address || 'N/A'}</td>
                   <td>${d.category === 'Sale' ? meta.seller_name : meta.buyer_name || 'N/A'}</td>
                   <td style="font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                   <td>
@@ -1331,7 +1416,7 @@ class App {
   }
 
   /* ==========================================================
-     DOCUMENT UPLOADS, EDITING, PROGRESS BAR LIST & DYNAMIC INPUTS
+     DOCUMENT UPLOADS, EDITING & SEPARATE INPUT FIELDS
      ========================================================== */
   openDocUploadModal(menuKey, categories) {
     this.editingDocId = null;
@@ -1382,9 +1467,15 @@ class App {
       };
     } else if (menuKey === 'travel') {
       formFields.innerHTML = `
-        <div class="form-group">
-          <label class="form-label">Person Name & Designation *</label>
-          <input type="text" id="travelPerson" class="form-input" placeholder="e.g. Rahul Sharma - Sr Manager" required>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label">Person Name *</label>
+            <input type="text" id="travelPerson" class="form-input" placeholder="e.g. Rahul Sharma" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Designation</label>
+            <input type="text" id="travelDesignation" class="form-input" placeholder="e.g. Sr Manager">
+          </div>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
           <div class="form-group">
@@ -1399,9 +1490,15 @@ class App {
       `;
     } else if (menuKey === 'property') {
       formFields.innerHTML = `
-        <div class="form-group">
-          <label class="form-label">Property Name & Address *</label>
-          <input type="text" id="propName" class="form-input" placeholder="e.g. Commercial Plot 42" required>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label">Property Name *</label>
+            <input type="text" id="propName" class="form-input" placeholder="e.g. Commercial Plot 42" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Property Address</label>
+            <input type="text" id="propAddress" class="form-input" placeholder="e.g. MG Road, Bengaluru">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Seller / Buyer Name *</label>
@@ -1433,19 +1530,31 @@ class App {
       `;
     } else if (menuKey === 'bank') {
       formFields.innerHTML = `
-        <div class="form-group">
-          <label class="form-label">Bank Name / Tenure</label>
-          <input type="text" id="bankName" class="form-input" placeholder="e.g. HDFC Bank - 5 Years Tenure">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label">Bank Name *</label>
+            <input type="text" id="bankName" class="form-input" placeholder="e.g. HDFC Bank" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tenure / Loan Period</label>
+            <input type="text" id="bankTenure" class="form-input" placeholder="e.g. 5 Years">
+          </div>
         </div>
       `;
     } else if (menuKey === 'formalities') {
       formFields.innerHTML = `
-        <div class="form-group">
-          <label class="form-label">Person Name & Phone Number *</label>
-          <input type="text" id="formPerson" class="form-input" placeholder="e.g. Vikas Kumar - 9876543210" required>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label">Person Name *</label>
+            <input type="text" id="formPerson" class="form-input" placeholder="e.g. Vikas Kumar" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="text" id="formPhone" class="form-input" placeholder="e.g. 9876543210">
+          </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Purpose</label>
+          <label class="form-label">Purpose / Details</label>
           <input type="text" id="formPurpose" class="form-input" placeholder="e.g. ROC Filing & Stamp Duty">
         </div>
       `;
@@ -1470,7 +1579,7 @@ class App {
     document.getElementById('docDateInput').value = formattedDate;
     document.getElementById('docAmountInput').value = doc.amount || 0;
 
-    // PREFILL ALL METADATA DETAILS ACROSS ALL MODULES
+    // PREFILL ALL SEPARATE METADATA DETAILS ACROSS ALL MODULES
     const meta = doc.metadata || {};
     if (doc.menu_key === 'office') {
       if (doc.category === 'Guest Maintenance') {
@@ -1483,10 +1592,12 @@ class App {
       }
     } else if (doc.menu_key === 'travel') {
       if (document.getElementById('travelPerson')) document.getElementById('travelPerson').value = meta.person_name || '';
+      if (document.getElementById('travelDesignation')) document.getElementById('travelDesignation').value = meta.designation || '';
       if (document.getElementById('travelBoarding')) document.getElementById('travelBoarding').value = meta.boarding || '';
       if (document.getElementById('travelDestination')) document.getElementById('travelDestination').value = meta.destination || '';
     } else if (doc.menu_key === 'property') {
       if (document.getElementById('propName')) document.getElementById('propName').value = meta.property_name || '';
+      if (document.getElementById('propAddress')) document.getElementById('propAddress').value = meta.address || '';
       if (document.getElementById('propParty')) document.getElementById('propParty').value = meta.seller_name || meta.buyer_name || '';
       if (document.getElementById('propLeftAmt')) document.getElementById('propLeftAmt').value = meta.left_amount || 0;
       if (document.getElementById('propRightAmt')) document.getElementById('propRightAmt').value = meta.right_amount || 0;
@@ -1495,8 +1606,10 @@ class App {
       if (document.getElementById('advPurpose')) document.getElementById('advPurpose').value = meta.purpose || '';
     } else if (doc.menu_key === 'bank') {
       if (document.getElementById('bankName')) document.getElementById('bankName').value = meta.bank_name || '';
+      if (document.getElementById('bankTenure')) document.getElementById('bankTenure').value = meta.tenure || '';
     } else if (doc.menu_key === 'formalities') {
       if (document.getElementById('formPerson')) document.getElementById('formPerson').value = meta.person_name || '';
+      if (document.getElementById('formPhone')) document.getElementById('formPhone').value = meta.phone || '';
       if (document.getElementById('formPurpose')) document.getElementById('formPurpose').value = meta.purpose || '';
     }
 
@@ -1582,10 +1695,12 @@ class App {
       metadata.others_amt = parseFloat(document.getElementById('guestOthersAmt')?.value) || 0;
     } else if (this.currentMenu === 'travel') {
       metadata.person_name = document.getElementById('travelPerson')?.value || '';
+      metadata.designation = document.getElementById('travelDesignation')?.value || '';
       metadata.boarding = document.getElementById('travelBoarding')?.value || '';
       metadata.destination = document.getElementById('travelDestination')?.value || '';
     } else if (this.currentMenu === 'property') {
       metadata.property_name = document.getElementById('propName')?.value || '';
+      metadata.address = document.getElementById('propAddress')?.value || '';
       metadata.seller_name = document.getElementById('propParty')?.value || '';
       metadata.buyer_name = document.getElementById('propParty')?.value || '';
       metadata.left_amount = parseFloat(document.getElementById('propLeftAmt')?.value) || 0;
@@ -1595,8 +1710,10 @@ class App {
       metadata.purpose = document.getElementById('advPurpose')?.value || '';
     } else if (this.currentMenu === 'bank') {
       metadata.bank_name = document.getElementById('bankName')?.value || '';
+      metadata.tenure = document.getElementById('bankTenure')?.value || '';
     } else if (this.currentMenu === 'formalities') {
       metadata.person_name = document.getElementById('formPerson')?.value || '';
+      metadata.phone = document.getElementById('formPhone')?.value || '';
       metadata.purpose = document.getElementById('formPurpose')?.value || '';
     }
 
