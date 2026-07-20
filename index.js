@@ -215,6 +215,17 @@ class App {
     localStorage.setItem('activeCompanyId', this.currentCompany.id);
   }
 
+  clearCreateUserInputs() {
+    const uInput = document.getElementById('newAuthUsername');
+    const pInput = document.getElementById('newAuthPassword');
+    const cuInput = document.getElementById('changePassUsername');
+    const cpInput = document.getElementById('changePassNew');
+    if (uInput) uInput.value = '';
+    if (pInput) pInput.value = '';
+    if (cuInput) cuInput.value = '';
+    if (cpInput) cpInput.value = '';
+  }
+
   async openSuperAdminModal() {
     if (!this.isSuperAdmin()) {
       alert('Access Denied: Only Super Admin can manage companies and user logins.');
@@ -222,6 +233,7 @@ class App {
     }
     this.renderCompanyList();
     this.populateCompanyDropdowns();
+    this.clearCreateUserInputs();
     await this.loadRegisteredUsers();
     this.openModal('superAdminModal');
   }
@@ -242,6 +254,7 @@ class App {
       secLogins.style.display = 'block';
       btnLogins.className = 'action-btn';
       btnComp.className = 'action-btn secondary';
+      this.clearCreateUserInputs();
       await this.loadRegisteredUsers();
     }
   }
@@ -416,8 +429,7 @@ class App {
       const data = await res.json();
       if (data.success) {
         this.showToast(`User credentials for '${username}' created!`);
-        document.getElementById('newAuthUsername').value = '';
-        document.getElementById('newAuthPassword').value = '';
+        this.clearCreateUserInputs();
         await this.loadRegisteredUsers();
       } else {
         alert(data.error || 'Failed to create user');
@@ -441,8 +453,7 @@ class App {
       const data = await res.json();
       if (data.success) {
         this.showToast(`Password updated for user '${username}'!`);
-        document.getElementById('changePassUsername').value = '';
-        document.getElementById('changePassNew').value = '';
+        this.clearCreateUserInputs();
         await this.loadRegisteredUsers();
       } else {
         alert(data.error || 'Failed to update password');
