@@ -1227,6 +1227,7 @@ class App {
     const formFields = document.getElementById('dynamicFormFields');
     formFields.innerHTML = '';
     this.pendingUploadFiles = [];
+    document.getElementById('docFileInput').value = '';
     this.renderSelectedFilesList();
 
     if (menuKey === 'office') {
@@ -1361,17 +1362,26 @@ class App {
       });
     }
 
+    // Reset input element value so user can select again cleanly
+    e.target.value = '';
     this.renderSelectedFilesList();
   }
 
   removeSelectedFile(fileId) {
     this.pendingUploadFiles = this.pendingUploadFiles.filter(f => f.id !== fileId);
+    const fileInput = document.getElementById('docFileInput');
+    if (fileInput) fileInput.value = '';
     this.renderSelectedFilesList();
   }
 
   renderSelectedFilesList() {
     const container = document.getElementById('selectedFilesList');
     if (!container) return;
+
+    if (this.pendingUploadFiles.length === 0) {
+      container.innerHTML = `<div style="color:var(--text-dim); font-size:0.85rem; padding:4px 0;">No files attached yet.</div>`;
+      return;
+    }
 
     container.innerHTML = this.pendingUploadFiles.map(f => `
       <div class="file-upload-item">

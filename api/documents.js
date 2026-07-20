@@ -17,12 +17,35 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: "Company ID is required" });
       }
 
-      const documents = await sql`
-        SELECT * FROM documents
-        WHERE company_id = ${companyId}
-        ${menuKey ? sql`AND menu_key = ${menuKey}` : sql``}
-        ORDER BY created_at DESC
-      `;
+      const numCompId = parseInt(companyId);
+
+      let documents = [];
+      if (menuKey) {
+        documents = await sql`
+          SELECT * FROM documents
+          WHERE company_id = ${numCompId} AND menu_key = ${menuKey}
+          ORDER BY created_at DESC
+        `;
+      } else {
+        documents = await sql`
+          SELECT * FROM documents
+          WHERE company_id = ${numCompId}
+          ORDER BY created_at DESC
+        `;
+      }
+
+      // Populate attached document files for every document
+      for (let doc of documents) {
+        if (typeof doc.metadata === 'string') {
+          try { doc.metadata = JSON.parse(doc.metadata); } catch(e){}
+        }
+        const files = await sql`
+          SELECT id, document_id, file_name, file_type, file_size, file_data, created_at
+          FROM document_files
+          WHERE document_id = ${doc.id}
+        `;
+        doc.files = files || [];
+      }
 
       return res.status(200).json({ success: true, documents });
     }
@@ -39,12 +62,13 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: "Document date cannot be in the past. It must be today or a future date." });
       }
 
+      const numCompId = parseInt(company_id);
       const numAmount = parseFloat(amount) || 0.0;
       const metaObj = JSON.stringify(metadata || {});
 
       const docResult = await sql`
         INSERT INTO documents (company_id, menu_key, category, amount, doc_date, metadata)
-        VALUES (${company_id}, ${menu_key}, ${category}, ${numAmount}, ${doc_date}, ${metaObj})
+        VALUES (${numCompId}, ${menu_key}, ${category}, ${numAmount}, ${doc_date}, ${metaObj})
         RETURNING *
       `;
       const insertedDoc = docResult[0];
@@ -101,6 +125,7 @@ module.exports = async function handler(req, res) {
       const id = req.query.id || (req.body && req.body.id);
       if (!id) return res.status(400).json({ error: "Document ID is required" });
 
+      await sql`DELETE FROM document_files WHERE document_id = ${id}`;
       await sql`DELETE FROM documents WHERE id = ${id}`;
       return res.status(200).json({ success: true, message: "Document deleted successfully" });
     }
