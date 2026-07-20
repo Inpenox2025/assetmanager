@@ -84,6 +84,9 @@
 
     <!-- Header Bar -->
     <header class="app-header">
+      <!-- Hamburger (mobile only) -->
+      <button class="sidebar-toggle" id="sidebarToggleBtn" onclick="app.toggleSidebar()" title="Toggle Menu">☰</button>
+
       <div class="header-brand">
         <img id="headerCompanyLogo"
           src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>"
@@ -96,13 +99,13 @@
         </div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 10px;">
+      <div class="header-actions">
         <button class="super-admin-btn" onclick="app.openSuperAdminModal()" id="superAdminHeaderBtn">
-          ⚙️ Super Admin Control Panel
+          ⚙️ <span>Super Admin Control Panel</span>
         </button>
         <button class="action-btn secondary" style="background: rgba(239, 68, 68, 0.2); color: #f87171;"
           onclick="app.logout()">
-          🚪 Logout
+          🚪 <span>Logout</span>
         </button>
       </div>
     </header>
@@ -136,8 +139,11 @@
 
     <!-- Main Workspace Layout -->
     <div class="app-container">
+      <!-- Mobile sidebar overlay -->
+      <div class="sidebar-overlay" id="sidebarOverlay" onclick="app.closeSidebar()"></div>
+
       <!-- Sidebar Navigation -->
-      <aside class="sidebar">
+      <aside class="sidebar" id="mainSidebar">
         <div class="nav-item active" data-menu="dashboard" onclick="app.switchMenu('dashboard')">
           <span class="nav-icon">📈</span> Dashboard
         </div>

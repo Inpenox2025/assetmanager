@@ -146,6 +146,28 @@ class App {
     this.showAuthScreen();
   }
 
+  /* Responsive sidebar toggle for mobile */
+  toggleSidebar() {
+    const sidebar = document.getElementById('mainSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (!sidebar) return;
+    const isOpen = sidebar.classList.contains('open');
+    if (isOpen) {
+      sidebar.classList.remove('open');
+      overlay && overlay.classList.remove('active');
+    } else {
+      sidebar.classList.add('open');
+      overlay && overlay.classList.add('active');
+    }
+  }
+
+  closeSidebar() {
+    const sidebar = document.getElementById('mainSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    sidebar && sidebar.classList.remove('open');
+    overlay && overlay.classList.remove('active');
+  }
+
   // Set min constraint on all date pickers to TODAY (Disallow past dates)
   setupDatePickers() {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -590,12 +612,10 @@ class App {
   switchMenu(menuKey) {
     this.currentMenu = menuKey;
     document.querySelectorAll('.nav-item').forEach(el => {
-      if (el.getAttribute('data-menu') === menuKey) {
-        el.classList.add('active');
-      } else {
-        el.classList.remove('active');
-      }
+      el.classList.toggle('active', el.getAttribute('data-menu') === menuKey);
     });
+    // Auto-close sidebar on mobile after navigation
+    if (window.innerWidth <= 768) this.closeSidebar();
     this.renderCurrentMenu();
   }
 
