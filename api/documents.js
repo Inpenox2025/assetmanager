@@ -97,22 +97,25 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: "Document ID, Category, and Date are required" });
       }
 
+      const docIdNum = parseInt(id);
       const numAmount = parseFloat(amount) || 0.0;
       const metaObj = JSON.stringify(metadata || {});
 
       const updated = await sql`
         UPDATE documents
         SET category = ${category}, amount = ${numAmount}, doc_date = ${doc_date}, metadata = ${metaObj}
-        WHERE id = ${id}
+        WHERE id = ${docIdNum}
         RETURNING *
       `;
 
-      if (Array.isArray(files) && files.length > 0) {
+      // Update attached files: delete old files and insert updated file list
+      if (Array.isArray(files)) {
+        await sql`DELETE FROM document_files WHERE document_id = ${docIdNum}`;
         for (const file of files) {
           if (file.name && file.data) {
             await sql`
               INSERT INTO document_files (document_id, file_name, file_type, file_size, file_data)
-              VALUES (${id}, ${file.name}, ${file.type || 'application/octet-stream'}, ${file.size || 0}, ${file.data})
+              VALUES (${docIdNum}, ${file.name}, ${file.type || 'application/octet-stream'}, ${file.size || 0}, ${file.data})
             `;
           }
         }
@@ -125,8 +128,9 @@ module.exports = async function handler(req, res) {
       const id = req.query.id || (req.body && req.body.id);
       if (!id) return res.status(400).json({ error: "Document ID is required" });
 
-      await sql`DELETE FROM document_files WHERE document_id = ${id}`;
-      await sql`DELETE FROM documents WHERE id = ${id}`;
+      const docIdNum = parseInt(id);
+      await sql`DELETE FROM document_files WHERE document_id = ${docIdNum}`;
+      await sql`DELETE FROM documents WHERE id = ${docIdNum}`;
       return res.status(200).json({ success: true, message: "Document deleted successfully" });
     }
 

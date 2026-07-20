@@ -1410,8 +1410,27 @@ class App {
     this.editingDocId = docId;
     this.openDocUploadModal(doc.menu_key, [doc.category]);
     document.getElementById('docModalTitle').innerText = `Edit Document Entry #${doc.id}`;
-    document.getElementById('docDateInput').value = doc.doc_date;
+
+    // Format date string for HTML input type="date" (YYYY-MM-DD)
+    let formattedDate = doc.doc_date;
+    if (formattedDate && formattedDate.includes('T')) {
+      formattedDate = formattedDate.split('T')[0];
+    }
+    document.getElementById('docDateInput').value = formattedDate;
     document.getElementById('docAmountInput').value = doc.amount || 0;
+
+    // Populate existing files into pendingUploadFiles list with remove buttons!
+    this.pendingUploadFiles = (doc.files || []).map((f, idx) => ({
+      id: f.id || (Date.now() + idx),
+      name: f.file_name,
+      type: f.file_type || 'application/pdf',
+      size: f.file_size || 0,
+      sizeLabel: f.file_size > 1024 ? `${(f.file_size / 1024).toFixed(1)}K` : `${f.file_size}B`,
+      data: f.file_data,
+      progress: 100
+    }));
+
+    this.renderSelectedFilesList();
   }
 
   async handleFileSelect(e) {
@@ -1550,22 +1569,40 @@ class App {
     }
   }
 
-  /* Universal Document Viewer & Editor */
-  async viewDocument(docId, fileId) {
+  /* Universal Document Viewer & Editor with Multi-File Switcher */
+  async viewDocument(docId, targetFileId = 0) {
     const doc = this.documents.find(d => d.id === docId);
     if (!doc) return;
-    const file = (doc.files || []).find(f => f.id === fileId) || (doc.files && doc.files[0]);
-    
+    const files = doc.files || [];
+    let file = files.find(f => f.id === targetFileId) || files[0];
+
     this.currentViewingDoc = { doc, file };
     const previewArea = document.getElementById('docPreviewArea');
     const title = document.getElementById('viewerModalTitle');
     const downloadBtn = document.getElementById('docDownloadBtn');
     const metaInfo = document.getElementById('docMetaInfo');
+    const tabsContainer = document.getElementById('docFileTabs');
+
+    // Render Multi-File Tab Strip if document has attached files
+    if (tabsContainer) {
+      if (files.length > 0) {
+        tabsContainer.innerHTML = files.map(f => `
+          <button type="button" class="doc-pill ${file && f.id === file.id ? 'active' : ''}" style="${file && f.id === file.id ? 'background:#6366f1; color:white; border-color:#818cf8;' : ''}" onclick="app.viewDocument(${doc.id}, ${f.id})">
+            📄 ${f.file_name}
+          </button>
+        `).join('');
+      } else {
+        tabsContainer.innerHTML = '';
+      }
+    }
 
     if (file) {
       title.innerText = `Previewing: ${file.file_name}`;
       downloadBtn.href = file.file_data || '#';
-      metaInfo.innerText = `Type: ${file.file_type || 'Unknown'} | Size: ${(file.file_size / 1024).toFixed(1)} KB | Date: ${doc.doc_date}`;
+      let dateDisplay = doc.doc_date;
+      if (dateDisplay && dateDisplay.includes('T')) dateDisplay = dateDisplay.split('T')[0];
+
+      metaInfo.innerText = `Type: ${file.file_type || 'Unknown'} | Size: ${(file.file_size / 1024).toFixed(1)} KB | Date: ${dateDisplay}`;
 
       if (file.file_type && file.file_type.includes('image')) {
         previewArea.innerHTML = `<img src="${file.file_data}" class="doc-preview-img" alt="Document Preview">`;
