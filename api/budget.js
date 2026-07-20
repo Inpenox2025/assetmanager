@@ -14,46 +14,105 @@ module.exports = async function handler(req, res) {
     /* =================================================================
        GET — Two modes:
          1. ?company_id=X               → today's live budget summary
-         2. ?action=history&company_id= → paginated date-wise history
-            (super admin can pass company_id=all to get all companies)
+         2. ?action=history&company_id= → date-wise history with filters
     ================================================================= */
     if (req.method === "GET") {
-      const action     = req.query.action;
-      const companyId  = req.query.company_id;
-      const dateFrom   = req.query.date_from;
-      const dateTo     = req.query.date_to;
+      const action    = req.query.action;
+      const companyId = req.query.company_id;
+      const dateFrom  = req.query.date_from || null;
+      const dateTo    = req.query.date_to   || null;
 
       if (!companyId) return res.status(400).json({ error: "company_id is required" });
 
-      /* ── Mode 2: Full history with filters ── */
+      /* ── Mode 2: Full history with optional filters ── */
       if (action === "history") {
         let rows;
 
         if (companyId === "all") {
-          // Super admin: all companies
-          rows = await sql`
-            SELECT db.*, c.name AS company_name
-            FROM daily_budgets db
-            JOIN companies c ON c.id = db.company_id
-            ${dateFrom ? sql`WHERE db.budget_date >= ${dateFrom}` : sql``}
-            ${dateTo   ? sql`AND db.budget_date <= ${dateTo}`     : sql``}
-            ORDER BY db.budget_date DESC, c.name ASC
-            LIMIT 200
-          `;
+          // Super admin — all companies, optional date range
+          if (dateFrom && dateTo) {
+            rows = await sql`
+              SELECT db.*, c.name AS company_name
+              FROM daily_budgets db
+              JOIN companies c ON c.id = db.company_id
+              WHERE db.budget_date >= ${dateFrom} AND db.budget_date <= ${dateTo}
+              ORDER BY db.budget_date DESC, c.name ASC
+              LIMIT 200
+            `;
+          } else if (dateFrom) {
+            rows = await sql`
+              SELECT db.*, c.name AS company_name
+              FROM daily_budgets db
+              JOIN companies c ON c.id = db.company_id
+              WHERE db.budget_date >= ${dateFrom}
+              ORDER BY db.budget_date DESC, c.name ASC
+              LIMIT 200
+            `;
+          } else if (dateTo) {
+            rows = await sql`
+              SELECT db.*, c.name AS company_name
+              FROM daily_budgets db
+              JOIN companies c ON c.id = db.company_id
+              WHERE db.budget_date <= ${dateTo}
+              ORDER BY db.budget_date DESC, c.name ASC
+              LIMIT 200
+            `;
+          } else {
+            rows = await sql`
+              SELECT db.*, c.name AS company_name
+              FROM daily_budgets db
+              JOIN companies c ON c.id = db.company_id
+              ORDER BY db.budget_date DESC, c.name ASC
+              LIMIT 200
+            `;
+          }
         } else {
-          rows = await sql`
-            SELECT db.*, c.name AS company_name
-            FROM daily_budgets db
-            JOIN companies c ON c.id = db.company_id
-            WHERE db.company_id = ${parseInt(companyId)}
-            ${dateFrom ? sql`AND db.budget_date >= ${dateFrom}` : sql``}
-            ${dateTo   ? sql`AND db.budget_date <= ${dateTo}`   : sql``}
-            ORDER BY db.budget_date DESC
-            LIMIT 200
-          `;
+          // Single company
+          const numCompId = parseInt(companyId);
+          if (dateFrom && dateTo) {
+            rows = await sql`
+              SELECT db.*, c.name AS company_name
+              FROM daily_budgets db
+              JOIN companies c ON c.id = db.company_id
+              WHERE db.company_id = ${numCompId}
+                AND db.budget_date >= ${dateFrom}
+                AND db.budget_date <= ${dateTo}
+              ORDER BY db.budget_date DESC
+              LIMIT 200
+            `;
+          } else if (dateFrom) {
+            rows = await sql`
+              SELECT db.*, c.name AS company_name
+              FROM daily_budgets db
+              JOIN companies c ON c.id = db.company_id
+              WHERE db.company_id = ${numCompId}
+                AND db.budget_date >= ${dateFrom}
+              ORDER BY db.budget_date DESC
+              LIMIT 200
+            `;
+          } else if (dateTo) {
+            rows = await sql`
+              SELECT db.*, c.name AS company_name
+              FROM daily_budgets db
+              JOIN companies c ON c.id = db.company_id
+              WHERE db.company_id = ${numCompId}
+                AND db.budget_date <= ${dateTo}
+              ORDER BY db.budget_date DESC
+              LIMIT 200
+            `;
+          } else {
+            rows = await sql`
+              SELECT db.*, c.name AS company_name
+              FROM daily_budgets db
+              JOIN companies c ON c.id = db.company_id
+              WHERE db.company_id = ${numCompId}
+              ORDER BY db.budget_date DESC
+              LIMIT 200
+            `;
+          }
         }
 
-        // For each row compute total_spent live from documents
+        // Compute live totals from documents for each row
         for (const row of rows) {
           const docs = await sql`
             SELECT amount FROM documents
@@ -61,25 +120,29 @@ module.exports = async function handler(req, res) {
               AND doc_date   = ${row.budget_date}
               AND menu_key IN ('itr','gst','office','vehicles','travel','advances','formalities')
           `;
-          row.total_spent = docs.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
+          row.total_spent     = docs.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
           row.total_available = (parseFloat(row.set_amount) || 0) + (parseFloat(row.carried_over_amount) || 0);
           row.remaining_amount = row.total_available - row.total_spent;
+          // Ensure notes exists (in case column was added after existing rows)
+          if (row.notes === undefined) row.notes = "";
         }
 
         return res.status(200).json({ success: true, history: rows });
       }
 
       /* ── Mode 1: Today's live budget for a single company ── */
+      const numCompId = parseInt(companyId);
+
       let todayBudgets = await sql`
         SELECT * FROM daily_budgets
-        WHERE company_id = ${parseInt(companyId)} AND budget_date = ${todayStr}
+        WHERE company_id = ${numCompId} AND budget_date = ${todayStr}
       `;
 
       let carriedOver = 0;
       if (todayBudgets.length === 0) {
         const prevBudgets = await sql`
           SELECT * FROM daily_budgets
-          WHERE company_id = ${parseInt(companyId)} AND budget_date < ${todayStr}
+          WHERE company_id = ${numCompId} AND budget_date < ${todayStr}
           ORDER BY budget_date DESC LIMIT 1
         `;
         if (prevBudgets.length > 0) {
@@ -93,19 +156,19 @@ module.exports = async function handler(req, res) {
 
       const docsToday = await sql`
         SELECT amount FROM documents
-        WHERE company_id = ${parseInt(companyId)}
+        WHERE company_id = ${numCompId}
           AND doc_date = ${todayStr}
           AND menu_key IN ('itr','gst','office','vehicles','travel','advances','formalities')
       `;
 
-      let totalSpentToday = docsToday.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
+      const totalSpentToday = docsToday.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
       const totalAvailable  = setAmount + carriedOver;
       const remainingToday  = totalAvailable - totalSpentToday;
 
       return res.status(200).json({
         success: true,
         budget: {
-          company_id: parseInt(companyId),
+          company_id: numCompId,
           date: todayStr,
           set_amount: setAmount,
           carried_over_amount: carriedOver,
@@ -117,7 +180,7 @@ module.exports = async function handler(req, res) {
     }
 
     /* =================================================================
-       POST — Set / update today's budget for a company
+       POST — Set / update budget for a specific date
     ================================================================= */
     if (req.method === "POST") {
       const { company_id, set_amount, budget_date, notes } = req.body || {};
@@ -128,7 +191,7 @@ module.exports = async function handler(req, res) {
       const targetDate = budget_date || todayStr;
       const notesVal   = notes || "";
 
-      // Previous day carryover (based on target date)
+      // Previous day carryover
       const prevBudgets = await sql`
         SELECT * FROM daily_budgets
         WHERE company_id = ${numCompId} AND budget_date < ${targetDate}
@@ -136,7 +199,7 @@ module.exports = async function handler(req, res) {
       `;
       const carriedOver = prevBudgets.length > 0 ? (parseFloat(prevBudgets[0].remaining_amount) || 0) : 0;
 
-      // Current spent on target date from documents
+      // Docs spent on target date
       const docs = await sql`
         SELECT amount FROM documents
         WHERE company_id = ${numCompId}
@@ -153,11 +216,11 @@ module.exports = async function handler(req, res) {
           (${numCompId}, ${targetDate}, ${numSetAmt}, ${carriedOver}, ${totalSpent}, ${remaining}, ${notesVal})
         ON CONFLICT (company_id, budget_date)
         DO UPDATE SET
-          set_amount           = EXCLUDED.set_amount,
-          carried_over_amount  = EXCLUDED.carried_over_amount,
-          total_spent          = EXCLUDED.total_spent,
-          remaining_amount     = EXCLUDED.remaining_amount,
-          notes                = EXCLUDED.notes
+          set_amount          = EXCLUDED.set_amount,
+          carried_over_amount = EXCLUDED.carried_over_amount,
+          total_spent         = EXCLUDED.total_spent,
+          remaining_amount    = EXCLUDED.remaining_amount,
+          notes               = EXCLUDED.notes
         RETURNING *
       `;
 
@@ -168,7 +231,7 @@ module.exports = async function handler(req, res) {
     }
 
     /* =================================================================
-       PUT — Edit an existing budget row by id (company admin / super admin)
+       PUT — Edit an existing budget row by id
     ================================================================= */
     if (req.method === "PUT") {
       const { id, set_amount, notes } = req.body || {};
@@ -177,7 +240,6 @@ module.exports = async function handler(req, res) {
       const numSetAmt = parseFloat(set_amount) || 0;
       const notesVal  = notes || "";
 
-      // Fetch the existing row to recalculate remaining
       const existing = await sql`SELECT * FROM daily_budgets WHERE id = ${parseInt(id)}`;
       if (!existing.length) return res.status(404).json({ error: "Budget entry not found" });
 
@@ -197,7 +259,7 @@ module.exports = async function handler(req, res) {
     }
 
     /* =================================================================
-       DELETE — Remove a budget entry by id (super admin only enforced on frontend)
+       DELETE — Remove a budget entry by id (super admin enforced on frontend)
     ================================================================= */
     if (req.method === "DELETE") {
       const id = req.query.id || (req.body && req.body.id);
