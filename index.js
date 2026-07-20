@@ -3,7 +3,7 @@ class App {
   constructor() {
     this.companies = [];
     this.currentCompany = null;
-    this.currentMenu = 'itr';
+    this.currentMenu = 'dashboard';
     this.budget = { set_amount: 0, carried_over_amount: 0, total_spent: 0, remaining_amount: 0 };
     this.documents = [];
     this.employees = [];
@@ -12,6 +12,7 @@ class App {
     this.currentViewingDoc = null;
     this.currentUser = null;
     this.pendingUploadFiles = []; // Staging array for file progress list
+    this.editingDocId = null; // Staging doc ID for edit mode
 
     this.init();
   }
@@ -50,9 +51,7 @@ class App {
 
     const saBtn = document.getElementById('superAdminHeaderBtn');
 
-    // Enforce Strict Role Isolation
     if (this.currentUser && this.currentUser.role !== 'super_admin') {
-      // Company Admin / Employee cannot access Super Admin Control Panel or manage companies
       if (saBtn) saBtn.style.display = 'none';
     } else {
       if (saBtn) saBtn.style.display = 'inline-flex';
@@ -164,7 +163,6 @@ class App {
       if (data.success && data.companies.length > 0) {
         this.companies = data.companies;
 
-        // Strict company isolation by user role
         if (this.currentUser && this.currentUser.role !== 'super_admin' && this.currentUser.company_id) {
           const userComp = this.companies.find(c => c.id == this.currentUser.company_id);
           this.currentCompany = userComp || this.companies[0];
@@ -393,7 +391,6 @@ class App {
      ========================================================== */
   async refreshData() {
     if (!this.currentCompany) return;
-    // Clear in-memory array views before loading target company data
     this.documents = [];
     this.employees = [];
     this.vehicles = [];
@@ -498,6 +495,9 @@ class App {
     const main = document.getElementById('mainContent');
 
     switch (this.currentMenu) {
+      case 'dashboard':
+        this.renderDashboard();
+        break;
       case 'itr':
         this.renderGenericMenu('Menu 1: ITR (Income Tax Returns)', 'itr', ['ITR', 'Audit Report', 'Paid Up Capital'], true);
         break;
@@ -530,6 +530,158 @@ class App {
         break;
     }
     this.setupDatePickers();
+  }
+
+  /* Executive Overview Dashboard Renderer */
+  renderDashboard() {
+    const main = document.getElementById('mainContent');
+
+    const totalDocs = this.documents.length;
+    const totalFiles = this.documents.reduce((acc, d) => acc + (d.files ? d.files.length : 0), 0);
+    const empCount = this.employees.length;
+    const vehCount = this.vehicles.length;
+    const serviceNeededCount = this.vehicles.filter(v => (v.total_kms_driven - v.kms_at_last_service) >= 10000).length;
+
+    const moduleMap = {
+      itr: { name: 'ITR & Audits', icon: '📊', count: 0, total: 0 },
+      gst: { name: 'GST Returns', icon: '🧾', count: 0, total: 0 },
+      bank: { name: 'Bank & EMI', icon: '🏦', count: 0, total: 0 },
+      office: { name: 'Office Maintenance', icon: '🏢', count: 0, total: 0 },
+      travel: { name: 'Travelling Allowance', icon: '✈️', count: 0, total: 0 },
+      property: { name: 'Property Transactions', icon: '🏘️', count: 0, total: 0 },
+      advances: { name: 'Employee Advances', icon: '💵', count: 0, total: 0 },
+      formalities: { name: 'Formalities', icon: '📋', count: 0, total: 0 }
+    };
+
+    this.documents.forEach(d => {
+      if (moduleMap[d.menu_key]) {
+        moduleMap[d.menu_key].count++;
+        moduleMap[d.menu_key].total += parseFloat(d.amount || 0);
+      }
+    });
+
+    const recentDocs = [...this.documents].slice(0, 5);
+
+    main.innerHTML = `
+      <div class="view-header">
+        <h2 class="view-title">📈 Executive Dashboard Overview</h2>
+        <div class="view-actions">
+          <button class="action-btn" onclick="app.openDocUploadModal('itr', ['ITR', 'Audit Report', 'Paid Up Capital'])">
+            ➕ Add Entry & Upload Docs
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Stat Cards Grid -->
+      <div class="grid-cards" style="margin-bottom: 24px;">
+        <div class="data-card">
+          <div class="card-header">
+            <span class="card-title">📌 Today's Maintenance Budget</span>
+            <span class="card-badge badge-info">${new Date().toISOString().split('T')[0]}</span>
+          </div>
+          <div class="card-amount">₹ ${parseFloat(this.budget.remaining_amount || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+          <div style="font-size:0.85rem; color:var(--text-muted); display:flex; justify-content:space-between;">
+            <span>Set: ₹${parseFloat(this.budget.set_amount || 0).toLocaleString('en-IN')}</span>
+            <span>Spent: ₹${parseFloat(this.budget.total_spent || 0).toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+
+        <div class="data-card">
+          <div class="card-header">
+            <span class="card-title">📁 Document Vault Summary</span>
+            <span class="card-badge badge-success">${totalFiles} Files</span>
+          </div>
+          <div class="card-amount" style="color:#60a5fa;">${totalDocs} Document Entries</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">
+            Includes PDFs, Images, TXT, and DOCX files across all 10 modules.
+          </div>
+        </div>
+
+        <div class="data-card">
+          <div class="card-header">
+            <span class="card-title">👥 HR & Employee Payroll</span>
+            <span class="card-badge badge-warning">${empCount} Active</span>
+          </div>
+          <div class="card-amount" style="color:#fbbf24;">${empCount} Employees</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">
+            Manage monthly salary paid/unpaid status tracking per employee.
+          </div>
+        </div>
+
+        <div class="data-card">
+          <div class="card-header">
+            <span class="card-title">🚗 Vehicle Fleet Status</span>
+            <span class="card-badge ${serviceNeededCount > 0 ? 'badge-danger' : 'badge-success'}">${serviceNeededCount} Alert(s)</span>
+          </div>
+          <div class="card-amount" style="color:${serviceNeededCount > 0 ? '#f87171' : '#34d399'};">${vehCount} Vehicles</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">
+            ${serviceNeededCount > 0 ? `⚠️ ${serviceNeededCount} vehicle(s) reached 10,000 KM threshold needing service.` : 'All vehicles serviced within 10,000 KM limit.'}
+          </div>
+        </div>
+      </div>
+
+      <!-- Module Summary Cards Grid -->
+      <h3 style="color:white; margin-bottom:14px; font-weight:700;">Module Financial Summary</h3>
+      <div class="grid-cards" style="margin-bottom: 24px;">
+        ${Object.keys(moduleMap).map(key => {
+          const m = moduleMap[key];
+          return `
+            <div class="data-card" style="cursor:pointer;" onclick="app.switchMenu('${key}')">
+              <div class="card-header">
+                <span class="card-title">${m.icon} ${m.name}</span>
+                <span class="card-badge badge-info">${m.count} Entries</span>
+              </div>
+              <div style="font-size:1.2rem; font-weight:700; color:#34d399;">₹ ${m.total.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+              <div style="font-size:0.8rem; color:var(--text-muted); text-align:right;">Click to view module ➔</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <!-- Recent Upload Activity Table -->
+      <h3 style="color:white; margin-bottom:14px; font-weight:700;">Recent Uploaded Documents</h3>
+      <div class="table-container">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Module</th>
+              <th>Category</th>
+              <th>Details / Purpose</th>
+              <th>Amount (₹)</th>
+              <th>Attached Documents</th>
+              <th>Actions (View & Edit)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${recentDocs.length === 0 ? `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:30px;">No document records logged yet. Click "Add Entry & Upload Docs" to start.</td></tr>` : ''}
+            ${recentDocs.map(d => `
+              <tr>
+                <td><strong>${d.doc_date}</strong></td>
+                <td><span class="card-badge badge-info" style="text-transform:uppercase;">${d.menu_key}</span></td>
+                <td><span class="card-badge badge-warning">${d.category}</span></td>
+                <td>${d.metadata?.purpose || d.metadata?.person_name || d.category}</td>
+                <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                <td>
+                  ${(d.files || []).map(f => `
+                    <span class="doc-pill" onclick="app.viewDocument(${d.id}, ${f.id})">
+                      📄 ${f.file_name}
+                    </span>
+                  `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
+                </td>
+                <td>
+                  <div style="display:flex; gap:6px;">
+                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">👁️ View</button>
+                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">✏️ Edit</button>
+                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">🗑️</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   /* Generic Document Menu Renderer */
@@ -569,7 +721,7 @@ class App {
               <th>Details / Purpose</th>
               <th>Amount (₹)</th>
               <th>Attached Documents</th>
-              <th>Actions</th>
+              <th>Actions (View & Edit)</th>
             </tr>
           </thead>
           <tbody>
@@ -588,7 +740,11 @@ class App {
                   `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
                 </td>
                 <td>
-                  <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>
+                  <div style="display:flex; gap:6px;">
+                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">👁️ View</button>
+                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">✏️ Edit</button>
+                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">🗑️ Delete</button>
+                  </div>
                 </td>
               </tr>
             `).join('')}
@@ -627,7 +783,7 @@ class App {
               <th>Breakdown / Details</th>
               <th>Amount (₹)</th>
               <th>Documents</th>
-              <th>Actions</th>
+              <th>Actions (View & Edit)</th>
             </tr>
           </thead>
           <tbody>
@@ -651,7 +807,11 @@ class App {
                   `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
                 </td>
                 <td>
-                  <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>
+                  <div style="display:flex; gap:6px;">
+                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">👁️ View</button>
+                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">✏️ Edit</button>
+                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">🗑️ Delete</button>
+                  </div>
                 </td>
               </tr>
             `).join('')}
@@ -1000,7 +1160,7 @@ class App {
               <th>Left Amount (₹) [Masked]</th>
               <th>Right Amount (₹)</th>
               <th>Documents</th>
-              <th>Actions</th>
+              <th>Actions (View & Edit)</th>
             </tr>
           </thead>
           <tbody>
@@ -1036,7 +1196,11 @@ class App {
                     `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
                   </td>
                   <td>
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>
+                    <div style="display:flex; gap:6px;">
+                      <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">👁️ View</button>
+                      <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">✏️ Edit</button>
+                      <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">🗑️</button>
+                    </div>
                   </td>
                 </tr>
               `;
@@ -1053,10 +1217,13 @@ class App {
   }
 
   /* ==========================================================
-     DOCUMENT UPLOADS, PROGRESS BAR LIST & DYNAMIC INPUTS
+     DOCUMENT UPLOADS, EDITING, PROGRESS BAR LIST & DYNAMIC INPUTS
      ========================================================== */
   openDocUploadModal(menuKey, categories) {
+    this.editingDocId = null;
+    document.getElementById('docModalTitle').innerText = 'Upload Documents & Log Entry';
     document.getElementById('docCategorySelect').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+    document.getElementById('docAmountInput').value = '';
     const formFields = document.getElementById('dynamicFormFields');
     formFields.innerHTML = '';
     this.pendingUploadFiles = [];
@@ -1162,7 +1329,17 @@ class App {
     this.setupDatePickers();
   }
 
-  // Handle file selection and render progress bar list matching user reference image
+  editDoc(docId) {
+    const doc = this.documents.find(d => d.id === docId);
+    if (!doc) return;
+
+    this.editingDocId = docId;
+    this.openDocUploadModal(doc.menu_key, [doc.category]);
+    document.getElementById('docModalTitle').innerText = `Edit Document Entry #${doc.id}`;
+    document.getElementById('docDateInput').value = doc.doc_date;
+    document.getElementById('docAmountInput').value = doc.amount || 0;
+  }
+
   async handleFileSelect(e) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -1242,7 +1419,10 @@ class App {
       metadata.purpose = document.getElementById('formPurpose')?.value || '';
     }
 
+    const isEditing = Boolean(this.editingDocId);
+    const method = isEditing ? 'PUT' : 'POST';
     const payload = {
+      id: this.editingDocId,
       company_id: this.currentCompany.id,
       menu_key: this.currentMenu,
       category,
@@ -1254,20 +1434,21 @@ class App {
 
     try {
       const res = await fetch('/api/documents', {
-        method: 'POST',
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
-        this.showToast(`Document entry saved & ₹ ${amount.toLocaleString()} deducted from daily budget!`);
+        this.showToast(isEditing ? 'Document entry updated successfully!' : `Document entry saved & ₹ ${amount.toLocaleString()} deducted from daily budget!`);
         this.closeModal('docUploadModal');
         this.pendingUploadFiles = [];
+        this.editingDocId = null;
         await this.loadDocuments();
         await this.loadBudget();
         this.renderCurrentMenu(); // Immediately re-render screen view!
       } else {
-        alert(data.error || 'Failed to upload documents');
+        alert(data.error || 'Failed to save document');
       }
     } catch (err) {
       console.error(err);
@@ -1291,31 +1472,41 @@ class App {
   async viewDocument(docId, fileId) {
     const doc = this.documents.find(d => d.id === docId);
     if (!doc) return;
-    const file = (doc.files || []).find(f => f.id === fileId);
-    if (!file) return;
-
+    const file = (doc.files || []).find(f => f.id === fileId) || (doc.files && doc.files[0]);
+    
     this.currentViewingDoc = { doc, file };
     const previewArea = document.getElementById('docPreviewArea');
     const title = document.getElementById('viewerModalTitle');
     const downloadBtn = document.getElementById('docDownloadBtn');
     const metaInfo = document.getElementById('docMetaInfo');
 
-    title.innerText = `Previewing: ${file.file_name}`;
-    downloadBtn.href = file.file_data;
-    metaInfo.innerText = `Type: ${file.file_type || 'Unknown'} | Size: ${(file.file_size / 1024).toFixed(1)} KB | Uploaded: ${doc.doc_date}`;
+    if (file) {
+      title.innerText = `Previewing: ${file.file_name}`;
+      downloadBtn.href = file.file_data || '#';
+      metaInfo.innerText = `Type: ${file.file_type || 'Unknown'} | Size: ${(file.file_size / 1024).toFixed(1)} KB | Date: ${doc.doc_date}`;
 
-    if (file.file_type.includes('image')) {
-      previewArea.innerHTML = `<img src="${file.file_data}" class="doc-preview-img" alt="Document Preview">`;
-    } else if (file.file_type.includes('text') || file.file_name.endsWith('.txt')) {
-      const base64Content = file.file_data.split(',')[1] || '';
-      const textContent = atob(base64Content);
-      previewArea.innerHTML = `<textarea class="doc-text-editor" id="docEditableText">${textContent}</textarea>`;
+      if (file.file_type && file.file_type.includes('image')) {
+        previewArea.innerHTML = `<img src="${file.file_data}" class="doc-preview-img" alt="Document Preview">`;
+      } else if ((file.file_type && file.file_type.includes('text')) || (file.file_name && file.file_name.endsWith('.txt'))) {
+        const base64Content = file.file_data ? file.file_data.split(',')[1] : '';
+        const textContent = base64Content ? atob(base64Content) : 'No content';
+        previewArea.innerHTML = `<textarea class="doc-text-editor" id="docEditableText">${textContent}</textarea>`;
+      } else {
+        previewArea.innerHTML = `
+          <div style="text-align:center; padding:20px; color:white;">
+            <div style="font-size:3rem; margin-bottom:10px;">📄</div>
+            <div style="font-weight:700; font-size:1.1rem;">${file.file_name}</div>
+            <p style="color:var(--text-muted); margin-top:6px;">Document Preview Active. Click download below to save or view offline.</p>
+          </div>
+        `;
+      }
     } else {
+      title.innerText = `Document Entry #${doc.id}`;
       previewArea.innerHTML = `
         <div style="text-align:center; padding:20px; color:white;">
-          <div style="font-size:3rem; margin-bottom:10px;">📄</div>
-          <div style="font-weight:700; font-size:1.1rem;">${file.file_name}</div>
-          <p style="color:var(--text-muted); margin-top:6px;">Document Viewer Active. Click download below to save or view offline.</p>
+          <div style="font-size:3rem; margin-bottom:10px;">📋</div>
+          <div style="font-weight:700; font-size:1.1rem;">Category: ${doc.category}</div>
+          <p style="color:var(--text-muted); margin-top:6px;">Amount: ₹${parseFloat(doc.amount || 0).toLocaleString('en-IN')} | Date: ${doc.doc_date}</p>
         </div>
       `;
     }
@@ -1325,7 +1516,7 @@ class App {
 
   saveDocEdit() {
     const editableText = document.getElementById('docEditableText');
-    if (editableText && this.currentViewingDoc) {
+    if (editableText && this.currentViewingDoc && this.currentViewingDoc.file) {
       const newText = editableText.value;
       const base64New = btoa(newText);
       this.currentViewingDoc.file.file_data = `data:text/plain;base64,${base64New}`;

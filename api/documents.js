@@ -34,7 +34,6 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: "Missing required document fields (company_id, menu_key, category, doc_date)" });
       }
 
-      // Enforce Date Validation: cannot be in the past
       const todayStr = new Date().toISOString().split("T")[0];
       if (doc_date < todayStr) {
         return res.status(400).json({ error: "Document date cannot be in the past. It must be today or a future date." });
@@ -43,7 +42,6 @@ module.exports = async function handler(req, res) {
       const numAmount = parseFloat(amount) || 0.0;
       const metaObj = JSON.stringify(metadata || {});
 
-      // Insert document header
       const docResult = await sql`
         INSERT INTO documents (company_id, menu_key, category, amount, doc_date, metadata)
         VALUES (${company_id}, ${menu_key}, ${category}, ${numAmount}, ${doc_date}, ${metaObj})
@@ -51,7 +49,6 @@ module.exports = async function handler(req, res) {
       `;
       const insertedDoc = docResult[0];
 
-      // Insert attached files
       const savedFiles = [];
       if (Array.isArray(files) && files.length > 0) {
         for (const file of files) {
@@ -68,6 +65,36 @@ module.exports = async function handler(req, res) {
 
       insertedDoc.files = savedFiles;
       return res.status(201).json({ success: true, document: insertedDoc });
+    }
+
+    if (req.method === "PUT") {
+      const { id, category, amount, doc_date, metadata, files } = req.body || {};
+      if (!id || !category || !doc_date) {
+        return res.status(400).json({ error: "Document ID, Category, and Date are required" });
+      }
+
+      const numAmount = parseFloat(amount) || 0.0;
+      const metaObj = JSON.stringify(metadata || {});
+
+      const updated = await sql`
+        UPDATE documents
+        SET category = ${category}, amount = ${numAmount}, doc_date = ${doc_date}, metadata = ${metaObj}
+        WHERE id = ${id}
+        RETURNING *
+      `;
+
+      if (Array.isArray(files) && files.length > 0) {
+        for (const file of files) {
+          if (file.name && file.data) {
+            await sql`
+              INSERT INTO document_files (document_id, file_name, file_type, file_size, file_data)
+              VALUES (${id}, ${file.name}, ${file.type || 'application/octet-stream'}, ${file.size || 0}, ${file.data})
+            `;
+          }
+        }
+      }
+
+      return res.status(200).json({ success: true, document: updated[0] });
     }
 
     if (req.method === "DELETE") {

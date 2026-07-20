@@ -116,7 +116,10 @@
     <div class="app-container">
       <!-- Sidebar Navigation -->
       <aside class="sidebar">
-        <div class="nav-item active" data-menu="itr" onclick="app.switchMenu('itr')">
+        <div class="nav-item active" data-menu="dashboard" onclick="app.switchMenu('dashboard')">
+          <span class="nav-icon">📈</span> Dashboard
+        </div>
+        <div class="nav-item" data-menu="itr" onclick="app.switchMenu('itr')">
           <span class="nav-icon">📊</span> Menu 1: ITR
         </div>
         <div class="nav-item" data-menu="gst" onclick="app.switchMenu('gst')">
@@ -154,7 +157,7 @@
       </main>
     </div>
 
-    <!-- Super Admin Control Panel Modal (Companies & Logins Management) -->
+    <!-- Super Admin Control Panel Modal -->
     <div class="modal-overlay" id="superAdminModal">
       <div class="modal-card" style="max-width: 750px;">
         <div class="modal-header">
@@ -239,7 +242,7 @@
       </div>
     </div>
 
-    <!-- Universal Document Entry Modal (With Progress Bar File Upload List) -->
+    <!-- Universal Document Entry Modal -->
     <div class="modal-overlay" id="docUploadModal">
       <div class="modal-card">
         <div class="modal-header">
@@ -271,7 +274,7 @@
             <input type="file" id="docFileInput" multiple accept="image/*,.txt,.pdf,.doc,.docx" class="form-input" onchange="app.handleFileSelect(event)">
           </div>
 
-          <!-- Upload Progress File List Container (Matching User Reference Image) -->
+          <!-- Upload Progress File List Container -->
           <div id="selectedFilesList" class="file-upload-list"></div>
 
           <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
