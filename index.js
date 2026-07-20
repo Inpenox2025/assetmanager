@@ -27,6 +27,10 @@ class App {
     }
   }
 
+  isSuperAdmin() {
+    return Boolean(this.currentUser && this.currentUser.role === 'super_admin');
+  }
+
   /* ==========================================================
      AUTHENTICATION & ROLE-BASED ACCESS CONTROL
      ========================================================== */
@@ -52,7 +56,7 @@ class App {
 
     const saBtn = document.getElementById('superAdminHeaderBtn');
 
-    if (this.currentUser && this.currentUser.role !== 'super_admin') {
+    if (!this.isSuperAdmin()) {
       if (saBtn) saBtn.style.display = 'none';
     } else {
       if (saBtn) saBtn.style.display = 'inline-flex';
@@ -98,6 +102,18 @@ class App {
         }
       }
       alert('Invalid username or password. Default Super Admin: superadmin / admin123');
+    }
+  }
+
+  togglePasswordVisibility(inputId, btnEl) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      btnEl.innerText = '🙈';
+    } else {
+      input.type = 'password';
+      btnEl.innerText = '👁️';
     }
   }
 
@@ -164,7 +180,7 @@ class App {
       if (data.success && data.companies.length > 0) {
         this.companies = data.companies;
 
-        if (this.currentUser && this.currentUser.role !== 'super_admin' && this.currentUser.company_id) {
+        if (!this.isSuperAdmin() && this.currentUser.company_id) {
           const userComp = this.companies.find(c => c.id == this.currentUser.company_id);
           this.currentCompany = userComp || this.companies[0];
         } else {
@@ -200,7 +216,7 @@ class App {
   }
 
   async openSuperAdminModal() {
-    if (this.currentUser && this.currentUser.role !== 'super_admin') {
+    if (!this.isSuperAdmin()) {
       alert('Access Denied: Only Super Admin can manage companies and user logins.');
       return;
     }
@@ -244,7 +260,7 @@ class App {
         <div style="display:flex; gap:8px;">
           <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editCompany(${c.id})">Edit</button>
           ${c.id !== this.currentCompany?.id ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.switchCompany(${c.id})">Switch</button>` : ''}
-          <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteCompany(${c.id})">Delete</button>
+          ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteCompany(${c.id})">Delete</button>` : ''}
         </div>
       </div>
     `).join('');
@@ -298,7 +314,7 @@ class App {
           </div>
           <div style="display:flex; gap:8px;">
             <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.fillResetPassword('${u.username}')">🔑 Reset Pass</button>
-            ${u.username !== 'superadmin' ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteUser(${u.id})">Delete</button>` : ''}
+            ${(this.isSuperAdmin() && u.username !== 'superadmin') ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteUser(${u.id})">Delete</button>` : ''}
           </div>
         </div>
       `;
@@ -312,6 +328,10 @@ class App {
   }
 
   async deleteUser(userId) {
+    if (!this.isSuperAdmin()) {
+      alert('Access Denied: Only Super Admin can delete users.');
+      return;
+    }
     if (!confirm('Are you sure you want to delete this user login?')) return;
     try {
       const res = await fetch(`/api/auth?action=delete-user&id=${userId}`, { method: 'DELETE' });
@@ -433,7 +453,7 @@ class App {
   }
 
   async switchCompany(compId) {
-    if (this.currentUser && this.currentUser.role !== 'super_admin') {
+    if (!this.isSuperAdmin()) {
       alert('Company Admins cannot switch between companies.');
       return;
     }
@@ -448,6 +468,10 @@ class App {
   }
 
   async deleteCompany(compId) {
+    if (!this.isSuperAdmin()) {
+      alert('Access Denied: Only Super Admin can delete companies.');
+      return;
+    }
     if (!confirm('Are you sure you want to delete this company and all its data?')) return;
     try {
       await fetch(`/api/companies?id=${compId}`, { method: 'DELETE' });
@@ -723,14 +747,14 @@ class App {
               <th>Details / Purpose</th>
               <th>Amount (₹)</th>
               <th>Attached Documents</th>
-              <th>Actions (View & Edit)</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             ${recentDocs.length === 0 ? `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:30px;">No document records logged yet. Click "Add Entry & Upload Docs" to start.</td></tr>` : ''}
             ${recentDocs.map(d => `
               <tr>
-                <td><strong>${d.doc_date}</strong></td>
+                <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
                 <td><span class="card-badge badge-info" style="text-transform:uppercase;">${d.menu_key}</span></td>
                 <td><span class="card-badge badge-warning">${d.category}</span></td>
                 <td>${d.metadata?.purpose || d.metadata?.person_name || d.category}</td>
@@ -744,9 +768,9 @@ class App {
                 </td>
                 <td>
                   <div style="display:flex; gap:6px;">
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">👁️ View</button>
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">✏️ Edit</button>
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">🗑️</button>
+                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">View</button>
+                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
+                    ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
                   </div>
                 </td>
               </tr>
@@ -794,14 +818,14 @@ class App {
               <th>Details / Purpose</th>
               <th>Amount (₹)</th>
               <th>Attached Documents</th>
-              <th>Actions (View & Edit)</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             ${docs.length === 0 ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">No documents uploaded yet for this module.</td></tr>` : ''}
             ${docs.map(d => `
               <tr>
-                <td><strong>${d.doc_date}</strong></td>
+                <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
                 <td><span class="card-badge badge-info">${d.category}</span></td>
                 <td>${d.metadata?.purpose || d.metadata?.person_name || d.metadata?.bank_name || d.category}</td>
                 <td style="color:#34d399; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
@@ -814,9 +838,9 @@ class App {
                 </td>
                 <td>
                   <div style="display:flex; gap:6px;">
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">👁️ View</button>
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">✏️ Edit</button>
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">🗑️ Delete</button>
+                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">View</button>
+                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
+                    ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
                   </div>
                 </td>
               </tr>
@@ -856,14 +880,14 @@ class App {
               <th>Breakdown / Details</th>
               <th>Amount (₹)</th>
               <th>Documents</th>
-              <th>Actions (View & Edit)</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             ${docs.length === 0 ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">No office maintenance entries logged yet.</td></tr>` : ''}
             ${docs.map(d => `
               <tr>
-                <td><strong>${d.doc_date}</strong></td>
+                <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
                 <td><span class="card-badge badge-warning">${d.category}</span></td>
                 <td>
                   ${d.category === 'Guest Maintenance' ? `
@@ -881,9 +905,9 @@ class App {
                 </td>
                 <td>
                   <div style="display:flex; gap:6px;">
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">👁️ View</button>
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">✏️ Edit</button>
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">🗑️ Delete</button>
+                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">View</button>
+                    <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
+                    ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
                   </div>
                 </td>
               </tr>
@@ -949,7 +973,7 @@ class App {
                     </label>
                   </td>
                   <td>
-                    <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteEmployee(${emp.id})">Delete</button>
+                    ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteEmployee(${emp.id})">Delete</button>` : '<span style="color:var(--text-dim); font-size:0.8rem;">View Only</span>'}
                   </td>
                 </tr>
               `;
@@ -1025,6 +1049,10 @@ class App {
   }
 
   async deleteEmployee(id) {
+    if (!this.isSuperAdmin()) {
+      alert('Access Denied: Only Super Admin can delete employees.');
+      return;
+    }
     if (!confirm('Delete employee?')) return;
     try {
       await fetch(`/api/employees?company_id=${this.currentCompany.id}&id=${id}`, { method: 'DELETE' });
@@ -1086,9 +1114,7 @@ class App {
                 <button class="action-btn" style="padding:6px 12px; font-size:0.85rem; flex:1;" onclick="app.openVehicleModal('service', ${v.id})">
                   🔧 Log Service / KMs
                 </button>
-                <button class="action-btn secondary" style="padding:6px 10px; font-size:0.85rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteVehicle(${v.id})">
-                  🗑️
-                </button>
+                ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:6px 10px; font-size:0.85rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteVehicle(${v.id})">Delete</button>` : ''}
               </div>
             </div>
           `;
@@ -1195,6 +1221,10 @@ class App {
   }
 
   async deleteVehicle(id) {
+    if (!this.isSuperAdmin()) {
+      alert('Access Denied: Only Super Admin can delete vehicles.');
+      return;
+    }
     if (!confirm('Delete vehicle?')) return;
     try {
       await fetch(`/api/vehicles?company_id=${this.currentCompany.id}&id=${id}`, { method: 'DELETE' });
@@ -1233,7 +1263,7 @@ class App {
               <th>Left Amount (₹) [Masked]</th>
               <th>Right Amount (₹)</th>
               <th>Documents</th>
-              <th>Actions (View & Edit)</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1245,7 +1275,7 @@ class App {
 
               return `
                 <tr>
-                  <td><strong>${d.doc_date}</strong></td>
+                  <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
                   <td><span class="${d.category === 'Sale' ? 'card-badge badge-success' : 'card-badge badge-warning'}">${d.category}</span></td>
                   <td><strong>${meta.property_name || 'N/A'}</strong><br><span style="font-size:0.8rem; color:var(--text-muted);">${meta.address || ''}</span></td>
                   <td>${d.category === 'Sale' ? meta.seller_name : meta.buyer_name || 'N/A'}</td>
@@ -1270,9 +1300,9 @@ class App {
                   </td>
                   <td>
                     <div style="display:flex; gap:6px;">
-                      <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">👁️ View</button>
-                      <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">✏️ Edit</button>
-                      <button class="action-btn secondary" style="padding:4px 8px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">🗑️</button>
+                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">View</button>
+                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
+                      ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
                     </div>
                   </td>
                 </tr>
@@ -1411,7 +1441,6 @@ class App {
     this.openDocUploadModal(doc.menu_key, [doc.category]);
     document.getElementById('docModalTitle').innerText = `Edit Document Entry #${doc.id}`;
 
-    // Format date string for HTML input type="date" (YYYY-MM-DD)
     let formattedDate = doc.doc_date;
     if (formattedDate && formattedDate.includes('T')) {
       formattedDate = formattedDate.split('T')[0];
@@ -1419,7 +1448,6 @@ class App {
     document.getElementById('docDateInput').value = formattedDate;
     document.getElementById('docAmountInput').value = doc.amount || 0;
 
-    // Populate existing files into pendingUploadFiles list with remove buttons!
     this.pendingUploadFiles = (doc.files || []).map((f, idx) => ({
       id: f.id || (Date.now() + idx),
       name: f.file_name,
@@ -1547,7 +1575,7 @@ class App {
         this.editingDocId = null;
         await this.loadDocuments();
         await this.loadBudget();
-        this.renderCurrentMenu(); // Immediately re-render screen view!
+        this.renderCurrentMenu();
       } else {
         alert(data.error || 'Failed to save document');
       }
@@ -1557,6 +1585,10 @@ class App {
   }
 
   async deleteDoc(id) {
+    if (!this.isSuperAdmin()) {
+      alert('Access Denied: Only Super Admin can delete documents.');
+      return;
+    }
     if (!confirm('Delete document entry?')) return;
     try {
       await fetch(`/api/documents?id=${id}`, { method: 'DELETE' });
@@ -1583,7 +1615,6 @@ class App {
     const metaInfo = document.getElementById('docMetaInfo');
     const tabsContainer = document.getElementById('docFileTabs');
 
-    // Render Multi-File Tab Strip if document has attached files
     if (tabsContainer) {
       if (files.length > 0) {
         tabsContainer.innerHTML = files.map(f => `
