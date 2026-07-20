@@ -26,7 +26,7 @@ class App {
   }
 
   /* ==========================================================
-     AUTHENTICATION & DATABASE INITIALIZATION
+     AUTHENTICATION & ROLE-BASED ACCESS CONTROL
      ========================================================== */
   checkExistingSession() {
     const savedUser = localStorage.getItem('currentUser');
@@ -44,10 +44,21 @@ class App {
     document.getElementById('appBody').style.display = 'none';
   }
 
-  showAppBody() {
+  async showAppBody() {
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('appBody').style.display = 'flex';
-    this.loadCompanies();
+
+    const saBtn = document.getElementById('superAdminHeaderBtn');
+
+    // Enforce Strict Role Isolation
+    if (this.currentUser && this.currentUser.role !== 'super_admin') {
+      // Company Admin / Employee cannot access Super Admin Control Panel or manage companies
+      if (saBtn) saBtn.style.display = 'none';
+    } else {
+      if (saBtn) saBtn.style.display = 'inline-flex';
+    }
+
+    await this.loadCompanies();
   }
 
   async handleLoginSubmit(e) {
@@ -69,22 +80,24 @@ class App {
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('currentUser', JSON.stringify(data.user));
         this.showToast(`Welcome back, ${data.user.username}!`);
-        this.showAppBody();
+        await this.showAppBody();
       } else {
-        alert(data.error || 'Login failed');
+        alert(data.error || 'Invalid credentials');
       }
     } catch (err) {
       console.error(err);
-      if ((username === 'superadmin' || username === 'admin') && password === 'admin123') {
-        const dummyUser = { id: 1, username: 'superadmin', role: 'super_admin' };
-        this.currentUser = dummyUser;
-        localStorage.setItem('authToken', 'mock_token_123');
-        localStorage.setItem('currentUser', JSON.stringify(dummyUser));
-        this.showToast('Super Admin Login Successful!');
-        this.showAppBody();
-      } else {
-        alert('Invalid credentials. Default Super Admin: superadmin / admin123');
+      if (username === 'superadmin' || username === 'admin') {
+        if (password === 'admin123') {
+          const dummyUser = { id: 1, username: 'superadmin', role: 'super_admin' };
+          this.currentUser = dummyUser;
+          localStorage.setItem('authToken', 'mock_token_123');
+          localStorage.setItem('currentUser', JSON.stringify(dummyUser));
+          this.showToast('Super Admin Login Successful!');
+          await this.showAppBody();
+          return;
+        }
       }
+      alert('Invalid username or password. Default Super Admin: superadmin / admin123');
     }
   }
 
@@ -109,6 +122,10 @@ class App {
     localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
     this.currentUser = null;
+    this.currentCompany = null;
+    this.documents = [];
+    this.employees = [];
+    this.vehicles = [];
     this.showToast('Logged out');
     this.showAuthScreen();
   }
@@ -138,7 +155,7 @@ class App {
   }
 
   /* ==========================================================
-     COMPANY & SUPER ADMIN CONTROL PANEL
+     COMPANY & STRICT DATA ISOLATION ENGINE
      ========================================================== */
   async loadCompanies() {
     try {
@@ -146,9 +163,16 @@ class App {
       const data = await res.json();
       if (data.success && data.companies.length > 0) {
         this.companies = data.companies;
-        const savedCompId = localStorage.getItem('activeCompanyId');
-        const found = this.companies.find(c => c.id == savedCompId);
-        this.currentCompany = found || this.companies[0];
+
+        // Strict company isolation by user role
+        if (this.currentUser && this.currentUser.role !== 'super_admin' && this.currentUser.company_id) {
+          const userComp = this.companies.find(c => c.id == this.currentUser.company_id);
+          this.currentCompany = userComp || this.companies[0];
+        } else {
+          const savedCompId = localStorage.getItem('activeCompanyId');
+          const found = this.companies.find(c => c.id == savedCompId);
+          this.currentCompany = found || this.companies[0];
+        }
       } else {
         this.companies = [
           { id: 1, name: 'Acme Corporation', gst_number: '29ABCDE1234F1Z5', logo_data: '' },
@@ -177,6 +201,10 @@ class App {
   }
 
   openSuperAdminModal() {
+    if (this.currentUser && this.currentUser.role !== 'super_admin') {
+      alert('Access Denied: Only Super Admin can manage companies and user logins.');
+      return;
+    }
     this.renderCompanyList();
     this.populateCompanyDropdowns();
     this.openModal('superAdminModal');
@@ -334,6 +362,10 @@ class App {
   }
 
   async switchCompany(compId) {
+    if (this.currentUser && this.currentUser.role !== 'super_admin') {
+      alert('Company Admins cannot switch between companies.');
+      return;
+    }
     const comp = this.companies.find(c => c.id == compId);
     if (comp) {
       this.currentCompany = comp;
@@ -357,10 +389,15 @@ class App {
   }
 
   /* ==========================================================
-     DAILY BUDGET ENGINE & DATA REFRESH
+     DAILY BUDGET ENGINE & SEPARATE COMPANY DATA REFRESH
      ========================================================== */
   async refreshData() {
     if (!this.currentCompany) return;
+    // Clear in-memory array views before loading target company data
+    this.documents = [];
+    this.employees = [];
+    this.vehicles = [];
+
     await Promise.all([
       this.loadBudget(),
       this.loadDocuments(),
