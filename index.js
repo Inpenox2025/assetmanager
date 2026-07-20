@@ -226,14 +226,26 @@ class App {
 
   updateHeaderCompany() {
     if (!this.currentCompany) return;
-    document.getElementById('headerCompanyName').innerText = this.currentCompany.name;
-    document.getElementById('headerCompanyGst').innerText = `GST: ${this.currentCompany.gst_number}`;
-    const logoImg = document.getElementById('headerCompanyLogo');
-    if (this.currentCompany.logo_data) {
-      logoImg.src = this.currentCompany.logo_data;
-    } else {
-      logoImg.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>";
-    }
+
+    const defaultLogoSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>";
+    const logoSrc = this.currentCompany.logo_data || defaultLogoSvg;
+
+    // ── Top header bar ──
+    const headerName = document.getElementById('headerCompanyName');
+    const headerGst  = document.getElementById('headerCompanyGst');
+    const headerLogo = document.getElementById('headerCompanyLogo');
+    if (headerName) headerName.innerText = this.currentCompany.name;
+    if (headerGst)  headerGst.innerText  = `GST: ${this.currentCompany.gst_number}`;
+    if (headerLogo) headerLogo.src = logoSrc;
+
+    // ── Sidebar company branding card ──
+    const sidebarName = document.getElementById('sidebarCompanyName');
+    const sidebarGst  = document.getElementById('sidebarCompanyGst');
+    const sidebarLogo = document.getElementById('sidebarCompanyLogo');
+    if (sidebarName) sidebarName.innerText = this.currentCompany.name;
+    if (sidebarGst)  sidebarGst.innerText  = `GST: ${this.currentCompany.gst_number}`;
+    if (sidebarLogo) sidebarLogo.src = logoSrc;
+
     localStorage.setItem('activeCompanyId', this.currentCompany.id);
   }
 

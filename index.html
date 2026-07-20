@@ -144,6 +144,20 @@
 
       <!-- Sidebar Navigation -->
       <aside class="sidebar" id="mainSidebar">
+
+        <!-- Company Branding Header inside Sidebar -->
+        <div class="sidebar-company-header">
+          <img id="sidebarCompanyLogo"
+            src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>"
+            class="sidebar-logo-img" alt="Company Logo">
+          <div class="sidebar-company-info">
+            <div class="sidebar-company-name" id="sidebarCompanyName">Company Name</div>
+            <div class="sidebar-company-gst" id="sidebarCompanyGst">GST: —</div>
+          </div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
         <div class="nav-item active" data-menu="dashboard" onclick="app.switchMenu('dashboard')">
           <span class="nav-icon">📈</span> Dashboard
         </div>
