@@ -21,16 +21,16 @@
       </div>
 
       <!-- Clean Login Form -->
-      <form id="loginForm" onsubmit="app.handleLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 14px;">
+      <form id="loginForm" onsubmit="app.handleLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 14px;" autocomplete="off">
         <div class="form-group">
           <label class="form-label">Username *</label>
-          <input type="text" id="loginUsername" class="form-input" placeholder="e.g. superadmin" value="superadmin" required>
+          <input type="text" id="loginUsername" class="form-input" placeholder="e.g. superadmin" value="" required autocomplete="username">
         </div>
 
         <div class="form-group">
           <label class="form-label">Password *</label>
           <div class="password-input-wrapper">
-            <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" value="admin123" required>
+            <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" value="" required autocomplete="current-password">
             <button type="button" class="password-toggle-btn" onclick="app.togglePasswordVisibility('loginPassword', this)" title="Show/Hide Password">👁️</button>
           </div>
         </div>
@@ -175,16 +175,16 @@
 
         <!-- Section 1: Companies Management -->
         <div id="saSectionCompanies">
-          <form id="companyEditForm" onsubmit="app.handleSaveCompany(event)" style="display:flex; flex-direction:column; gap:12px; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+          <form id="companyEditForm" onsubmit="app.handleSaveCompany(event)" style="display:flex; flex-direction:column; gap:12px; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);" autocomplete="off">
             <h4 id="companyFormTitle">Add New Company</h4>
             <input type="hidden" id="editCompanyId" value="">
             <div class="form-group">
               <label class="form-label">Company Name *</label>
-              <input type="text" id="newCompanyName" class="form-input" placeholder="e.g. Inpenox Technologies" required>
+              <input type="text" id="newCompanyName" class="form-input" placeholder="e.g. Inpenox Technologies" required autocomplete="off">
             </div>
             <div class="form-group">
               <label class="form-label">GST Number *</label>
-              <input type="text" id="newCompanyGst" class="form-input" placeholder="e.g. 29AAAAA0000A1Z5" required>
+              <input type="text" id="newCompanyGst" class="form-input" placeholder="e.g. 29AAAAA0000A1Z5" required autocomplete="off">
             </div>
             <div class="form-group">
               <label class="form-label">Company Logo (Optional)</label>
@@ -202,16 +202,16 @@
 
         <!-- Section 2: User Logins & Password Management -->
         <div id="saSectionLogins" style="display: none;">
-          <form onsubmit="app.handleCreateUserSubmit(event)" style="display:flex; flex-direction:column; gap:12px; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+          <form onsubmit="app.handleCreateUserSubmit(event)" style="display:flex; flex-direction:column; gap:12px; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);" autocomplete="off">
             <h4>Create Employee / Company Admin Login</h4>
             <div class="form-group">
               <label class="form-label">Username *</label>
-              <input type="text" id="newAuthUsername" class="form-input" placeholder="e.g. rahul_admin" required>
+              <input type="text" id="newAuthUsername" class="form-input" placeholder="e.g. rahul_admin" required value="" autocomplete="off">
             </div>
             <div class="form-group">
               <label class="form-label">Password *</label>
               <div class="password-input-wrapper">
-                <input type="password" id="newAuthPassword" class="form-input" placeholder="Password" required>
+                <input type="password" id="newAuthPassword" class="form-input" placeholder="Password" required value="" autocomplete="new-password">
                 <button type="button" class="password-toggle-btn" onclick="app.togglePasswordVisibility('newAuthPassword', this)" title="Show/Hide Password">👁️</button>
               </div>
             </div>
@@ -232,15 +232,15 @@
           </form>
 
           <h4 style="margin-top:20px; margin-bottom:10px;">Change Password for Any User</h4>
-          <form onsubmit="app.handleChangeUserPasswordSubmit(event)" style="display:flex; gap:10px; align-items:flex-end; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+          <form onsubmit="app.handleChangeUserPasswordSubmit(event)" style="display:flex; gap:10px; align-items:flex-end; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);" autocomplete="off">
             <div class="form-group" style="flex:1; margin-bottom:0;">
               <label class="form-label">Username *</label>
-              <input type="text" id="changePassUsername" class="form-input" placeholder="e.g. superadmin" required>
+              <input type="text" id="changePassUsername" class="form-input" placeholder="e.g. superadmin" required value="" autocomplete="off">
             </div>
             <div class="form-group" style="flex:1; margin-bottom:0;">
               <label class="form-label">New Password *</label>
               <div class="password-input-wrapper">
-                <input type="password" id="changePassNew" class="form-input" placeholder="New Password" required>
+                <input type="password" id="changePassNew" class="form-input" placeholder="New Password" required value="" autocomplete="new-password">
                 <button type="button" class="password-toggle-btn" onclick="app.togglePasswordVisibility('changePassNew', this)" title="Show/Hide Password">👁️</button>
               </div>
             </div>
