@@ -4,6 +4,9 @@
   "cleanUrls": true,
   "rewrites": [
     { "source": "/api/setup", "destination": "/api/setup" },
+    { "source": "/api/auth/login", "destination": "/api/auth?action=login" },
+    { "source": "/api/auth/reset-password", "destination": "/api/auth?action=reset-password" },
+    { "source": "/api/auth/me", "destination": "/api/auth?action=me" },
     { "source": "/api/companies", "destination": "/api/companies" },
     { "source": "/api/companies/:id", "destination": "/api/companies?id=:id" },
     { "source": "/api/documents", "destination": "/api/documents" },

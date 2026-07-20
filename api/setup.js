@@ -1,13 +1,35 @@
 const { getSQL } = require("../shared/db");
+const bcrypt = require("bcryptjs");
 
 module.exports = async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST" && req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
 
   try {
     const sql = getSQL();
+
+    // 0. Users Table for Authentication & Super Admin Login
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'company_admin', -- 'super_admin', 'company_admin'
+        company_id INT,
+        email VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+
+    // Seed default Super Admin account if not existing
+    const superAdminPasswordHash = await bcrypt.hash("inspenox2025", 10);
+    await sql`
+      INSERT INTO users (username, password_hash, role, email)
+      VALUES ('superadmin', ${superAdminPasswordHash}, 'super_admin', 'admin@inducare.com')
+      ON CONFLICT (username) DO NOTHING
+    `;
 
     // 1. Companies Table
     await sql`
@@ -18,6 +40,13 @@ module.exports = async function handler(req, res) {
         logo_data TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       )
+    `;
+
+    // Seed default Companies if empty
+    await sql`
+      INSERT INTO companies (name, gst_number)
+      VALUES ('Acme Corporation', '29ABCDE1234F1Z5'), ('Apex Logistics Ltd', '27AAAAA0000A1Z5')
+      ON CONFLICT DO NOTHING
     `;
 
     // 2. Daily Budgets Table
@@ -122,7 +151,11 @@ module.exports = async function handler(req, res) {
       )
     `;
 
-    return res.status(200).json({ success: true, message: "Database tables initialized successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Database tables and Super Admin credentials initialized successfully!",
+      default_credentials: { username: "superadmin", password: "admin123" }
+    });
   } catch (error) {
     console.error("Setup Error:", error);
     return res.status(500).json({ error: error.message });

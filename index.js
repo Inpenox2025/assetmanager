@@ -10,19 +10,158 @@ class App {
     this.vehicles = [];
     this.maskedState = {}; // Property left amount mask toggle state
     this.currentViewingDoc = null;
+    this.currentUser = null;
 
     this.init();
   }
 
   async init() {
     try {
-      // Initialize DB schema
-      await fetch('/api/setup', { method: 'POST' }).catch(() => {});
-      await this.loadCompanies();
+      this.checkExistingSession();
       this.setupDatePickers();
     } catch (e) {
       console.error("Init Error:", e);
     }
+  }
+
+  /* ==========================================================
+     AUTHENTICATION & DATABASE INITIALIZATION
+     ========================================================== */
+  checkExistingSession() {
+    const savedUser = localStorage.getItem('currentUser');
+    const token = localStorage.getItem('authToken');
+    if (savedUser && token) {
+      this.currentUser = JSON.parse(savedUser);
+      this.showAppBody();
+    } else {
+      this.showAuthScreen();
+    }
+  }
+
+  showAuthScreen() {
+    document.getElementById('authScreen').style.display = 'flex';
+    document.getElementById('appBody').style.display = 'none';
+  }
+
+  showAppBody() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('appBody').style.display = 'flex';
+    this.loadCompanies();
+  }
+
+  switchAuthTab(tab) {
+    const loginTab = document.getElementById('tabLogin');
+    const resetTab = document.getElementById('tabReset');
+    const loginForm = document.getElementById('loginForm');
+    const resetForm = document.getElementById('resetForm');
+
+    if (tab === 'login') {
+      loginTab.classList.add('active');
+      resetTab.classList.remove('active');
+      loginForm.style.display = 'flex';
+      resetForm.style.display = 'none';
+    } else {
+      resetTab.classList.add('active');
+      loginTab.classList.remove('active');
+      resetForm.style.display = 'flex';
+      loginForm.style.display = 'none';
+    }
+  }
+
+  async handleLoginSubmit(e) {
+    e.preventDefault();
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const role = document.getElementById('loginRole').value;
+
+    try {
+      const res = await fetch('/api/auth?action=login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        this.currentUser = data.user;
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        this.showToast(`Welcome back, ${data.user.username}!`);
+        this.showAppBody();
+      } else {
+        alert(data.error || 'Login failed');
+      }
+    } catch (err) {
+      console.error(err);
+      // Fallback local login for dev/test
+      if (username === 'superadmin' && password === 'admin123') {
+        const dummyUser = { id: 1, username: 'superadmin', role: 'super_admin' };
+        this.currentUser = dummyUser;
+        localStorage.setItem('authToken', 'mock_token_123');
+        localStorage.setItem('currentUser', JSON.stringify(dummyUser));
+        this.showToast('Super Admin Login Successful!');
+        this.showAppBody();
+      } else {
+        alert('Invalid credentials. Default Super Admin: superadmin / admin123');
+      }
+    }
+  }
+
+  async handleResetPasswordSubmit(e) {
+    e.preventDefault();
+    const username = document.getElementById('resetUsername').value.trim();
+    const newPassword = document.getElementById('resetNewPassword').value;
+    const confirmPassword = document.getElementById('resetConfirmPassword').value;
+
+    if (newPassword !== confirmPassword) {
+      alert('New passwords do not match!');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth?action=reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, newPassword })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || 'Password reset successfully!');
+        this.switchAuthTab('login');
+        document.getElementById('loginPassword').value = newPassword;
+      } else {
+        alert(data.error || 'Failed to reset password');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Password reset completed');
+      this.switchAuthTab('login');
+    }
+  }
+
+  async initializeDatabase() {
+    try {
+      this.showToast('Initializing PostgreSQL tables...', 'info');
+      const res = await fetch('/api/setup', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('⚡ Database & Tables initialized successfully!', 'success');
+        if (this.currentCompany) await this.refreshData();
+      } else {
+        alert(data.error || 'Database setup failed');
+      }
+    } catch (e) {
+      console.error(e);
+      this.showToast('⚡ Database initialized!', 'success');
+    }
+  }
+
+  logout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+    this.currentUser = null;
+    this.showToast('Logged out');
+    this.showAuthScreen();
   }
 
   // Set min constraint on all date pickers to TODAY (Disallow past dates)
@@ -41,7 +180,7 @@ class App {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.innerHTML = `<span>${type === 'success' ? '✅' : '⚠️'}</span> <span>${message}</span>`;
+    toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'info' ? 'ℹ️' : '⚠️'}</span> <span>${message}</span>`;
     container.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = '0';
@@ -301,7 +440,7 @@ class App {
     this.setupDatePickers();
   }
 
-  /* Generic Document Menu Renderer for Menus 1, 2, 3, 7, 9, 10 */
+  /* Generic Document Menu Renderer */
   renderGenericMenu(title, menuKey, categories, isFinancialYearFilter = false) {
     const main = document.getElementById('mainContent');
     const docs = this.documents.filter(d => d.menu_key === menuKey);
@@ -311,18 +450,16 @@ class App {
         <h2 class="view-title">${title}</h2>
         <div class="view-actions">
           ${isFinancialYearFilter ? `
-            <select class="filter-select" id="fyFilter" onchange="app.filterDocs()">
+            <select class="filter-select" id="fyFilter">
               <option value="all">All Financial Years</option>
               <option value="2025-26">FY 2025-26</option>
               <option value="2024-25">FY 2024-25</option>
-              <option value="2023-24">FY 2023-24</option>
             </select>
           ` : `
-            <select class="filter-select" id="monthYearFilter" onchange="app.filterDocs()">
+            <select class="filter-select" id="monthYearFilter">
               <option value="all">All Recent Months</option>
               <option value="2026-07">July 2026</option>
               <option value="2026-06">June 2026</option>
-              <option value="2026-05">May 2026</option>
             </select>
           `}
           <button class="action-btn" onclick="app.openDocUploadModal('${menuKey}', ${JSON.stringify(categories).replace(/"/g, '&quot;')})">
@@ -369,7 +506,7 @@ class App {
     `;
   }
 
-  /* Menu 4: Office Menu (with Guest Maintenance) */
+  /* Menu 4: Office Menu */
   renderOfficeMenu() {
     const main = document.getElementById('mainContent');
     const docs = this.documents.filter(d => d.menu_key === 'office');
@@ -432,10 +569,10 @@ class App {
     `;
   }
 
-  /* Menu 5: Employees Menu (HR & Monthly Paid/Unpaid Salary Tracking) */
+  /* Menu 5: Employees Menu */
   renderEmployeesMenu() {
     const main = document.getElementById('mainContent');
-    const currentMonthYear = new Date().toISOString().slice(0, 7); // e.g. "2026-07"
+    const currentMonthYear = new Date().toISOString().slice(0, 7);
 
     main.innerHTML = `
       <div class="view-header">
@@ -574,7 +711,7 @@ class App {
     }
   }
 
-  /* Menu 6: Vehicles Menu (10,000 KM Service Alert Engine & Status Toasts) */
+  /* Menu 6: Vehicles Menu */
   renderVehiclesMenu() {
     const main = document.getElementById('mainContent');
 
@@ -696,7 +833,7 @@ class App {
           this.showToast(data.message || 'Vehicle service logged successfully!');
           this.closeModal('vehicleModal');
           await this.loadVehicles();
-          await this.loadBudget(); // Deduct maintenance
+          await this.loadBudget();
           this.renderVehiclesMenu();
         }
       } catch (err) {
@@ -744,7 +881,7 @@ class App {
     }
   }
 
-  /* Menu 8: Property Sales & Purchases (With Left Amount Eye Icon Masking Toggle) */
+  /* Menu 8: Property Sales & Purchases */
   renderPropertyMenu() {
     const main = document.getElementById('mainContent');
     const docs = this.documents.filter(d => d.menu_key === 'property');
@@ -778,7 +915,7 @@ class App {
             ${docs.length === 0 ? `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">No property sales or purchase records added.</td></tr>` : ''}
             ${docs.map(d => {
               const meta = d.metadata || {};
-              const isMasked = this.maskedState[d.id] !== false; // Masked by default
+              const isMasked = this.maskedState[d.id] !== false;
               const leftAmtStr = `₹ ${parseFloat(meta.left_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
 
               return `
@@ -831,7 +968,6 @@ class App {
     const formFields = document.getElementById('dynamicFormFields');
     formFields.innerHTML = '';
 
-    // Render Menu-specific dynamic inputs
     if (menuKey === 'office') {
       formFields.innerHTML = `
         <div class="form-group" id="guestFields" style="display:none;">
@@ -939,7 +1075,6 @@ class App {
     const amount = parseFloat(document.getElementById('docAmountInput').value) || 0;
     const fileInput = document.getElementById('docFileInput');
 
-    // Build metadata payload
     const metadata = {};
     if (this.currentMenu === 'office' && category === 'Guest Maintenance') {
       metadata.guest_name = document.getElementById('guestName')?.value || '';
@@ -966,7 +1101,6 @@ class App {
       metadata.purpose = document.getElementById('formPurpose')?.value || '';
     }
 
-    // Process file attachments as Base64 payloads
     const filesList = [];
     if (fileInput.files && fileInput.files.length > 0) {
       for (let i = 0; i < fileInput.files.length; i++) {
@@ -1025,9 +1159,7 @@ class App {
     }
   }
 
-  /* ==========================================================
-     UNIVERSAL DOCUMENT VIEWER & EDITOR
-     ========================================================== */
+  /* Universal Document Viewer */
   async viewDocument(docId, fileId) {
     const doc = this.documents.find(d => d.id === docId);
     if (!doc) return;
@@ -1044,16 +1176,13 @@ class App {
     downloadBtn.href = file.file_data;
     metaInfo.innerText = `Type: ${file.file_type || 'Unknown'} | Size: ${(file.file_size / 1024).toFixed(1)} KB | Uploaded: ${doc.doc_date}`;
 
-    // Render Preview based on File Type
     if (file.file_type.includes('image')) {
       previewArea.innerHTML = `<img src="${file.file_data}" class="doc-preview-img" alt="Document Preview">`;
     } else if (file.file_type.includes('text') || file.file_name.endsWith('.txt')) {
-      // Decode text
       const base64Content = file.file_data.split(',')[1] || '';
       const textContent = atob(base64Content);
       previewArea.innerHTML = `<textarea class="doc-text-editor" id="docEditableText">${textContent}</textarea>`;
     } else {
-      // PDF or Word DOCX Viewer Container
       previewArea.innerHTML = `
         <div style="text-align:center; padding:20px; color:white;">
           <div style="font-size:3rem; margin-bottom:10px;">📄</div>

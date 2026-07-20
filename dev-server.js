@@ -18,6 +18,7 @@ app.use((req, res, next) => {
 
 // Import API routes
 const setupHandler = require('./api/setup');
+const authHandler = require('./api/auth');
 const companiesHandler = require('./api/companies');
 const documentsHandler = require('./api/documents');
 const budgetHandler = require('./api/budget');
@@ -26,6 +27,7 @@ const vehiclesHandler = require('./api/vehicles');
 
 // Route mapping matching vercel.json
 app.all('/api/setup', (req, res) => setupHandler(req, res));
+app.all('/api/auth*', (req, res) => authHandler(req, res));
 app.all('/api/companies*', (req, res) => companiesHandler(req, res));
 app.all('/api/documents*', (req, res) => documentsHandler(req, res));
 app.all('/api/budget*', (req, res) => budgetHandler(req, res));
