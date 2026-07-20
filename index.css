@@ -27,7 +27,7 @@
   --radius-lg: 16px;
   --radius-xl: 24px;
 
-  --sidebar-width: 240px;
+  --sidebar-width: 280px;
   --header-height: 60px;
   --ticker-height: 38px;
   --budget-height: 70px;
@@ -218,10 +218,27 @@ html, body {
   padding: 14px 10px;
   display: flex; flex-direction: column; gap: 4px;
   flex-shrink: 0;
-  overflow-y: auto; /* Sidebar scrolls independently */
+  overflow-y: auto;  /* Sidebar scrolls independently */
   overflow-x: hidden;
-  transition: transform var(--transition-fast), width var(--transition-fast);
+  transition: transform var(--transition-fast);
   z-index: 80;
+  /* Custom sidebar scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #6366f1 rgba(15, 23, 42, 0.5);
+}
+.sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 4px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #6366f1, #4f46e5);
+  border-radius: 4px;
+}
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #818cf8;
 }
 
 .nav-item {
@@ -229,7 +246,11 @@ html, body {
   padding: 10px 14px; border-radius: var(--radius-md);
   color: var(--text-muted); font-weight: 500; cursor: pointer;
   transition: all var(--transition-fast); text-decoration: none;
-  font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.875rem;
+  /* Allow text to wrap — never cut off menu names */
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
   flex-shrink: 0;
 }
 .nav-item:hover { background: var(--surface-hover); color: white; }
@@ -426,10 +447,14 @@ html, body {
 }
 .password-toggle-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
 
-/* ── Sidebar Overlay (mobile) ── */
+/* ── Sidebar Overlay (mobile backdrop) ── */
 .sidebar-overlay {
-  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
-  z-index: 79; backdrop-filter: blur(2px);
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 199; /* just below sidebar at 200 */
+  backdrop-filter: blur(3px);
 }
 .sidebar-overlay.active { display: block; }
 
@@ -437,105 +462,155 @@ html, body {
    RESPONSIVE BREAKPOINTS
    ============================================================ */
 
-/* ── Tablet: 1024px ── */
+
+/* ============================================================
+   RESPONSIVE BREAKPOINTS
+   ============================================================ */
+
+/* ── Tablet: 1024px — keep sidebar full-width, just slightly smaller ── */
 @media (max-width: 1024px) {
-  :root { --sidebar-width: 210px; }
+  :root { --sidebar-width: 260px; }
 
-  .company-name { font-size: 0.9rem; }
   .gst-badge { display: none; }
+  .company-name { font-size: 0.9rem; }
 
-  .budget-card { min-width: 110px; padding: 6px 10px; }
-  .budget-value { font-size: 0.95rem; }
-  .budget-label { font-size: 0.62rem; }
+  .budget-card { min-width: 105px; padding: 6px 10px; }
+  .budget-value { font-size: 0.9rem; }
+  .budget-label { font-size: 0.6rem; }
   .budget-input { width: 110px; }
-
   .super-admin-btn { font-size: 0.8rem; padding: 6px 11px; }
   .main-content { padding: 16px 18px; }
 }
 
-/* ── Mobile landscape / small tablet: 768px ── */
+/* ── Mobile & small tablet ≤ 768px — off-canvas drawer ── */
 @media (max-width: 768px) {
-  :root { --sidebar-width: 220px; }
 
-  /* Show hamburger, hide super-admin text label on tiny screens */
+  /* Show hamburger button */
   .sidebar-toggle { display: flex; }
 
-  /* Sidebar becomes off-canvas drawer */
+  /* Sidebar becomes a full-height off-canvas drawer */
   .sidebar {
     position: fixed;
-    top: 0; left: 0;
-    height: 100vh;
+    top: 0;
+    left: 0;
+    height: 100dvh;          /* Use dynamic viewport height */
+    /* Width auto-fits the longest menu item — min 260px, max 80vw */
+    width: clamp(260px, 80vw, 320px) !important;
     transform: translateX(-100%);
-    z-index: 82;
-    padding-top: calc(var(--header-height) + 8px);
-    box-shadow: 4px 0 20px rgba(0,0,0,0.5);
-    width: var(--sidebar-width) !important;
+    z-index: 200;
+    padding-top: calc(var(--header-height) + var(--ticker-height) + 6px);
+    box-shadow: 6px 0 30px rgba(0, 0, 0, 0.6);
+    /* Allow full-text nav items — no truncation */
+    overflow-y: auto;
+    overflow-x: hidden;
   }
-  .sidebar.open { transform: translateX(0); }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Nav items must show full text on mobile */
+  .nav-item {
+    white-space: normal !important;
+    word-break: keep-all !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    font-size: 0.92rem;
+    padding: 11px 16px;
+  }
 
   /* Main content takes full width */
-  .main-content { padding: 14px 14px; }
+  .app-container { flex-direction: column; }
+  .main-content { padding: 12px 14px; width: 100%; }
 
-  /* Header */
-  .app-header { padding: 0 14px; }
-  .company-name { font-size: 0.85rem; }
+  /* Header layout on mobile */
+  .app-header {
+    padding: 0 12px;
+    gap: 8px;
+    height: auto;
+    min-height: var(--header-height);
+    flex-wrap: nowrap;
+  }
+  .header-brand { flex: 1; min-width: 0; overflow: hidden; }
+  .company-name { font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .gst-badge { display: none; }
+  .company-logo-img { width: 32px; height: 32px; }
 
-  /* Budget bar wraps to 2×2 grid */
-  .budget-bar { padding: 10px 14px; gap: 8px; }
-  .budget-widgets { gap: 8px; width: 100%; }
-  .budget-card { min-width: calc(50% - 4px); flex: 1; }
-  .set-budget-form { width: 100%; }
-  .budget-input { flex: 1; width: auto; }
+  /* Header actions — compact on mobile */
+  .header-actions { gap: 6px; flex-shrink: 0; }
+  .super-admin-btn { padding: 6px 10px; font-size: 0.78rem; gap: 4px; }
+  .super-admin-btn span { display: none; } /* Hide text label, keep icon only */
+  .super-admin-btn::before { content: '⚙️'; font-size: 1.1rem; }
 
-  /* Super admin button compact */
-  .super-admin-btn span:not(:first-child) { display: none; } /* hide text, keep icon */
+  /* Budget bar: 2×2 grid then form */
+  .budget-bar {
+    padding: 8px 12px;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .budget-widgets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .budget-card { min-width: unset; width: 100%; }
+  .set-budget-form { width: 100%; gap: 8px; }
+  .budget-input { flex: 1; width: auto; min-width: 0; }
 
   /* View header stacks */
-  .view-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .view-actions { width: 100%; }
+  .view-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .view-title { font-size: 1.1rem; }
+  .view-actions { width: 100%; flex-wrap: wrap; }
 
-  /* Action buttons slightly smaller */
-  .action-btn { padding: 7px 12px; font-size: 0.82rem; }
+  /* Grid: 1 column */
+  .grid-cards { grid-template-columns: 1fr; gap: 12px; }
 
-  /* Grid: single column */
-  .grid-cards { grid-template-columns: 1fr; gap: 14px; }
+  /* Tables scroll horizontally, tighter padding */
+  .custom-table th { padding: 9px 11px; font-size: 0.72rem; }
+  .custom-table td { padding: 9px 11px; font-size: 0.8rem; }
 
-  /* Table cells tighter */
-  .custom-table th { padding: 10px 12px; font-size: 0.72rem; }
-  .custom-table td { padding: 10px 12px; font-size: 0.82rem; }
-
-  /* Modal full-screen feel */
-  .modal-card { padding: 18px; border-radius: var(--radius-lg); }
+  /* Modal fills screen */
+  .modal-overlay { padding: 10px; align-items: flex-end; }
+  .modal-card {
+    padding: 18px;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 96vh;
+    max-width: 100%;
+    width: 100%;
+  }
   .modal-title { font-size: 1.05rem; }
 }
 
-/* ── Phone: 480px ── */
+/* ── Phone ≤ 480px — extra-tight ── */
 @media (max-width: 480px) {
-  .app-header { padding: 0 10px; gap: 8px; }
-  .company-logo-img { width: 30px; height: 30px; }
-  .company-name { font-size: 0.8rem; }
+  .app-header { padding: 0 10px; }
+  .company-logo-img { width: 28px; height: 28px; }
+  .company-name { font-size: 0.78rem; }
 
-  .budget-bar { padding: 8px 10px; }
+  .budget-bar { padding: 6px 10px; }
   .budget-card { padding: 5px 8px; }
-  .budget-value { font-size: 0.85rem; }
+  .budget-value { font-size: 0.82rem; }
+  .budget-label { font-size: 0.58rem; }
 
   .main-content { padding: 10px 10px; }
-  .view-title { font-size: 1.1rem; }
-
   .action-btn { padding: 6px 10px; font-size: 0.78rem; gap: 4px; }
 
-  .modal-card { padding: 14px; gap: 14px; }
+  .modal-card { padding: 14px; gap: 12px; }
 
-  .toast-container { bottom: 10px; right: 10px; left: 10px; }
-  .toast { font-size: 0.82rem; padding: 10px 14px; }
+  .toast-container { bottom: 10px; right: 8px; left: 8px; }
+  .toast { font-size: 0.8rem; padding: 9px 12px; }
 
-  /* Grid 2-col for cards on slightly larger phones */
+  /* Single-col grids */
   .grid-cards { grid-template-columns: 1fr; }
 
-  /* Make two-col form grids single col */
+  /* Force inline two-col form grids to stack */
   div[style*="grid-template-columns:1fr 1fr"],
-  div[style*="grid-template-columns: 1fr 1fr"] {
-    display: flex !important; flex-direction: column !important;
+  div[style*="grid-template-columns: 1fr 1fr"],
+  div[style*="grid-template-columns:1fr 1fr 1fr"],
+  div[style*="grid-template-columns: 1fr 1fr 1fr"] {
+    display: flex !important;
+    flex-direction: column !important;
   }
 }
+
