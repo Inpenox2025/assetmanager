@@ -20,13 +20,7 @@
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">Multi-Company Asset & Document Management</p>
       </div>
 
-      <!-- Auth Tabs -->
-      <div class="auth-tabs">
-        <button type="button" class="auth-tab active" id="tabLogin" onclick="app.switchAuthTab('login')">Login</button>
-        <button type="button" class="auth-tab" id="tabReset" onclick="app.switchAuthTab('reset')">Reset Password</button>
-      </div>
-
-      <!-- Login Form -->
+      <!-- Clean Login Form -->
       <form id="loginForm" onsubmit="app.handleLoginSubmit(event)" style="display: flex; flex-direction: column; gap: 14px;">
         <div class="form-group">
           <label class="form-label">Username *</label>
@@ -42,7 +36,7 @@
           <label class="form-label">Role Access *</label>
           <select id="loginRole" class="form-select">
             <option value="super_admin">Super Admin (All Companies)</option>
-            <option value="company_admin">Company Admin</option>
+            <option value="company_admin">Company Admin / Employee</option>
           </select>
         </div>
 
@@ -51,31 +45,9 @@
         </button>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.82rem;">
-          <span style="color: var(--text-muted);">Default Super Admin: <code style="color:#34d399;">superadmin</code> / <code style="color:#34d399;">admin123</code></span>
-          <button type="button" onclick="app.initializeDatabase()" style="background: none; border: none; color: #818cf8; text-decoration: underline; cursor: pointer;">⚡ Auto-Initialize DB</button>
+          <span style="color: var(--text-muted);">Super Admin: <code style="color:#34d399;">superadmin</code> / <code style="color:#34d399;">admin123</code></span>
+          <button type="button" onclick="app.initializeDatabase()" style="background: none; border: none; color: #818cf8; text-decoration: underline; cursor: pointer; font-weight: 600;">⚡ Initialize DB & Tables</button>
         </div>
-      </form>
-
-      <!-- Reset Password Form -->
-      <form id="resetForm" onsubmit="app.handleResetPasswordSubmit(event)" style="display: none; flex-direction: column; gap: 14px;">
-        <div class="form-group">
-          <label class="form-label">Username *</label>
-          <input type="text" id="resetUsername" class="form-input" placeholder="e.g. superadmin" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">New Password *</label>
-          <input type="password" id="resetNewPassword" class="form-input" placeholder="Enter new password" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Confirm New Password *</label>
-          <input type="password" id="resetConfirmPassword" class="form-input" placeholder="Confirm new password" required>
-        </div>
-
-        <button type="submit" class="action-btn" style="width: 100%; justify-content: center; padding: 12px; font-size: 1rem; margin-top: 6px; background: linear-gradient(135deg, #10b981, #059669);">
-          🔒 Reset Password
-        </button>
       </form>
     </div>
   </div>
@@ -105,11 +77,8 @@
       </div>
 
       <div style="display: flex; align-items: center; gap: 10px;">
-        <button class="action-btn secondary" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);" onclick="app.initializeDatabase()" title="Initialize PostgreSQL Database & Tables">
-          ⚡ Initialize DB
-        </button>
         <button class="super-admin-btn" onclick="app.openSuperAdminModal()" id="superAdminHeaderBtn">
-          ⚙️ Super Admin / Switch Company
+          ⚙️ Super Admin Control Panel
         </button>
         <button class="action-btn secondary" style="background: rgba(239, 68, 68, 0.2); color: #f87171;" onclick="app.logout()">
           🚪 Logout
@@ -185,49 +154,92 @@
       </main>
     </div>
 
-    <!-- Super Admin Companies Modal -->
+    <!-- Super Admin Control Panel Modal (Companies & Logins Management) -->
     <div class="modal-overlay" id="superAdminModal">
-      <div class="modal-card">
+      <div class="modal-card" style="max-width: 750px;">
         <div class="modal-header">
           <h3 class="modal-title">Super Admin Control Panel</h3>
           <button class="modal-close" onclick="app.closeModal('superAdminModal')">&times;</button>
         </div>
-        
-        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <div style="font-weight: 700; color: #34d399;">Database Status</div>
-            <div style="font-size: 0.8rem; color: var(--text-muted);">PostgreSQL schema & serverless tables</div>
-          </div>
-          <button class="action-btn" style="background: linear-gradient(135deg, #10b981, #059669);" onclick="app.initializeDatabase()">
-            ⚡ Initialize DB & Create Tables
-          </button>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <button class="action-btn" id="saTabCompanies" onclick="app.switchSuperAdminTab('companies')">Manage Companies</button>
+          <button class="action-btn secondary" id="saTabLogins" onclick="app.switchSuperAdminTab('logins')">Manage User Logins & Passwords</button>
         </div>
 
-        <hr style="border-color: var(--border-color); margin: 10px 0;">
+        <!-- Section 1: Companies Management -->
+        <div id="saSectionCompanies">
+          <form id="companyEditForm" onsubmit="app.handleSaveCompany(event)" style="display:flex; flex-direction:column; gap:12px; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+            <h4 id="companyFormTitle">Add New Company</h4>
+            <input type="hidden" id="editCompanyId" value="">
+            <div class="form-group">
+              <label class="form-label">Company Name *</label>
+              <input type="text" id="newCompanyName" class="form-input" placeholder="e.g. Inpenox Technologies" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">GST Number *</label>
+              <input type="text" id="newCompanyGst" class="form-input" placeholder="e.g. 29AAAAA0000A1Z5" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Company Logo (Optional)</label>
+              <input type="file" id="newCompanyLogo" accept="image/*" class="form-input">
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button type="submit" class="action-btn" id="saveCompanyBtn">Save Company</button>
+              <button type="button" class="action-btn secondary" id="cancelEditCompanyBtn" style="display:none;" onclick="app.resetCompanyForm()">Cancel Edit</button>
+            </div>
+          </form>
 
-        <form onsubmit="app.handleCreateCompany(event)" style="display:flex; flex-direction:column; gap:12px;">
-          <h4>Add New Company</h4>
-          <div class="form-group">
-            <label class="form-label">Company Name *</label>
-            <input type="text" id="newCompanyName" class="form-input" placeholder="e.g. Inpenox Technologies" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">GST Number *</label>
-            <input type="text" id="newCompanyGst" class="form-input" placeholder="e.g. 29AAAAA0000A1Z5" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Company Logo (Optional)</label>
-            <input type="file" id="newCompanyLogo" accept="image/*" class="form-input">
-          </div>
-          <button type="submit" class="action-btn">Create Company</button>
-        </form>
-        <hr style="border-color: var(--border-color); margin: 10px 0;">
-        <h4>Existing Companies</h4>
-        <div id="companyListContainer" style="display:flex; flex-direction:column; gap:10px;"></div>
+          <h4 style="margin-top:20px; margin-bottom:10px;">Existing Companies</h4>
+          <div id="companyListContainer" style="display:flex; flex-direction:column; gap:10px;"></div>
+        </div>
+
+        <!-- Section 2: User Logins & Password Management -->
+        <div id="saSectionLogins" style="display: none;">
+          <form onsubmit="app.handleCreateUserSubmit(event)" style="display:flex; flex-direction:column; gap:12px; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+            <h4>Create Employee / Company Admin Login</h4>
+            <div class="form-group">
+              <label class="form-label">Username *</label>
+              <input type="text" id="newAuthUsername" class="form-input" placeholder="e.g. rahul_admin" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password *</label>
+              <input type="password" id="newAuthPassword" class="form-input" placeholder="Password" required>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div class="form-group">
+                <label class="form-label">Assigned Company</label>
+                <select id="newAuthCompany" class="form-select"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Role</label>
+                <select id="newAuthRole" class="form-select">
+                  <option value="company_admin">Company Admin</option>
+                  <option value="employee">Employee</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="action-btn">Create User Credentials</button>
+          </form>
+
+          <h4 style="margin-top:20px; margin-bottom:10px;">Change Password for Any User</h4>
+          <form onsubmit="app.handleChangeUserPasswordSubmit(event)" style="display:flex; gap:10px; align-items:flex-end; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+            <div class="form-group" style="flex:1; margin-bottom:0;">
+              <label class="form-label">Username *</label>
+              <input type="text" id="changePassUsername" class="form-input" placeholder="e.g. superadmin" required>
+            </div>
+            <div class="form-group" style="flex:1; margin-bottom:0;">
+              <label class="form-label">New Password *</label>
+              <input type="password" id="changePassNew" class="form-input" placeholder="New Password" required>
+            </div>
+            <button type="submit" class="action-btn" style="background: linear-gradient(135deg, #10b981, #059669);">Update Password</button>
+          </form>
+        </div>
+
       </div>
     </div>
 
-    <!-- Universal Document Entry Modal -->
+    <!-- Universal Document Entry Modal (With Progress Bar File Upload List) -->
     <div class="modal-overlay" id="docUploadModal">
       <div class="modal-card">
         <div class="modal-header">
@@ -256,10 +268,13 @@
 
           <div class="form-group">
             <label class="form-label">Select Files (Multiple Images, TXT, PDF, Word DOCX supported)</label>
-            <input type="file" id="docFileInput" multiple accept="image/*,.txt,.pdf,.doc,.docx" class="form-input">
+            <input type="file" id="docFileInput" multiple accept="image/*,.txt,.pdf,.doc,.docx" class="form-input" onchange="app.handleFileSelect(event)">
           </div>
 
-          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+          <!-- Upload Progress File List Container (Matching User Reference Image) -->
+          <div id="selectedFilesList" class="file-upload-list"></div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
             <button type="button" class="action-btn secondary" onclick="app.closeModal('docUploadModal')">Cancel</button>
             <button type="submit" class="action-btn">Save Entry & Deduct Maintenance</button>
           </div>

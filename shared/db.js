@@ -2,6 +2,9 @@ const { neon } = require('@neondatabase/serverless');
 
 // In-memory mock database store when DATABASE_URL is not set for local offline dev
 const memoryStore = {
+  users: [
+    { id: 1, username: 'superadmin', password_hash: '$2a$10$abcdefghijklmnopqrstuu', role: 'super_admin', email: 'admin@inducare.com' }
+  ],
   companies: [
     { id: 1, name: 'Acme Corporation', gst_number: '29ABCDE1234F1Z5', logo_data: '', created_at: new Date().toISOString() },
     { id: 2, name: 'Apex Logistics Ltd', gst_number: '27AAAAA0000A1Z5', logo_data: '', created_at: new Date().toISOString() }
@@ -22,6 +25,7 @@ let empIdCounter = 1;
 let vehIdCounter = 1;
 let budgetIdCounter = 1;
 let serviceIdCounter = 1;
+let userIdCounter = 2;
 
 function getMemorySQL() {
   return async function sql(strings, ...values) {
@@ -33,8 +37,44 @@ function getMemorySQL() {
       return [];
     }
 
+    // USERS
+    if (query.includes('users')) {
+      if (upperQuery.startsWith('SELECT')) {
+        if (query.includes('WHERE LOWER(username) =')) {
+          const uname = (values[0] || '').toLowerCase();
+          return memoryStore.users.filter(u => u.username.toLowerCase() === uname);
+        }
+        return [...memoryStore.users];
+      }
+      if (upperQuery.startsWith('INSERT INTO USERS')) {
+        const username = values[0];
+        const passHash = values[1];
+        const role = values[2] || 'company_admin';
+        const companyId = values[3] ? parseInt(values[3]) : null;
+        const email = values[4] || '';
+
+        const existing = memoryStore.users.find(u => u.username.toLowerCase() === username.toLowerCase());
+        if (!existing) {
+          const newUser = { id: userIdCounter++, username, password_hash: passHash, role, company_id: companyId, email, created_at: new Date().toISOString() };
+          memoryStore.users.push(newUser);
+          return [newUser];
+        }
+        return [existing];
+      }
+      if (upperQuery.startsWith('UPDATE USERS')) {
+        const passHash = values[0];
+        const uname = (values[1] || '').toLowerCase();
+        const user = memoryStore.users.find(u => u.username.toLowerCase() === uname);
+        if (user) {
+          user.password_hash = passHash;
+          return [user];
+        }
+        return [];
+      }
+    }
+
     // COMPANIES
-    if (query.includes('FROM companies') || query.includes('INTO companies')) {
+    if (query.includes('FROM companies') || query.includes('INTO companies') || query.includes('companies SET')) {
       if (upperQuery.startsWith('SELECT')) {
         if (query.includes('WHERE id =')) {
           const id = parseInt(values[0]);
@@ -49,6 +89,20 @@ function getMemorySQL() {
         const newComp = { id: compIdCounter++, name, gst_number: gst, logo_data: logo, created_at: new Date().toISOString() };
         memoryStore.companies.push(newComp);
         return [newComp];
+      }
+      if (upperQuery.startsWith('UPDATE COMPANIES')) {
+        const name = values[0];
+        const gst = values[1];
+        const logo = values[2];
+        const id = parseInt(values[3]);
+        const comp = memoryStore.companies.find(c => c.id === id);
+        if (comp) {
+          comp.name = name;
+          comp.gst_number = gst;
+          if (logo) comp.logo_data = logo;
+          return [comp];
+        }
+        return [];
       }
       if (upperQuery.startsWith('DELETE FROM COMPANIES')) {
         const id = parseInt(values[0]);
@@ -95,7 +149,7 @@ function getMemorySQL() {
       }
       if (upperQuery.startsWith('SELECT') && query.includes('FROM documents')) {
         const companyId = parseInt(values[0]);
-        let filtered = memoryStore.documents.filter(d => d.company_id === companyId);
+        let filtered = memoryStore.documents.filter(d => d.company_id === parseInt(companyId));
         const menuKey = values[1];
         if (menuKey) {
           filtered = filtered.filter(d => d.menu_key === menuKey);
@@ -148,18 +202,6 @@ function getMemorySQL() {
         const id = parseInt(values[0]);
         memoryStore.documents = memoryStore.documents.filter(d => d.id !== id);
         memoryStore.document_files = memoryStore.document_files.filter(f => f.document_id !== id);
-        return [];
-      }
-      if (upperQuery.startsWith('UPDATE DOCUMENTS')) {
-        const id = parseInt(values[0]);
-        const amount = parseFloat(values[1]);
-        const docDate = values[2];
-        const idx = memoryStore.documents.findIndex(d => d.id === id);
-        if (idx >= 0) {
-          if (!isNaN(amount)) memoryStore.documents[idx].amount = amount;
-          if (docDate) memoryStore.documents[idx].doc_date = docDate;
-          return [memoryStore.documents[idx]];
-        }
         return [];
       }
     }

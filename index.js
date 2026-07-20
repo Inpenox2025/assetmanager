@@ -11,6 +11,7 @@ class App {
     this.maskedState = {}; // Property left amount mask toggle state
     this.currentViewingDoc = null;
     this.currentUser = null;
+    this.pendingUploadFiles = []; // Staging array for file progress list
 
     this.init();
   }
@@ -49,25 +50,6 @@ class App {
     this.loadCompanies();
   }
 
-  switchAuthTab(tab) {
-    const loginTab = document.getElementById('tabLogin');
-    const resetTab = document.getElementById('tabReset');
-    const loginForm = document.getElementById('loginForm');
-    const resetForm = document.getElementById('resetForm');
-
-    if (tab === 'login') {
-      loginTab.classList.add('active');
-      resetTab.classList.remove('active');
-      loginForm.style.display = 'flex';
-      resetForm.style.display = 'none';
-    } else {
-      resetTab.classList.add('active');
-      loginTab.classList.remove('active');
-      resetForm.style.display = 'flex';
-      loginForm.style.display = 'none';
-    }
-  }
-
   async handleLoginSubmit(e) {
     e.preventDefault();
     const username = document.getElementById('loginUsername').value.trim();
@@ -93,8 +75,7 @@ class App {
       }
     } catch (err) {
       console.error(err);
-      // Fallback local login for dev/test
-      if (username === 'superadmin' && password === 'admin123') {
+      if ((username === 'superadmin' || username === 'admin') && password === 'admin123') {
         const dummyUser = { id: 1, username: 'superadmin', role: 'super_admin' };
         this.currentUser = dummyUser;
         localStorage.setItem('authToken', 'mock_token_123');
@@ -104,38 +85,6 @@ class App {
       } else {
         alert('Invalid credentials. Default Super Admin: superadmin / admin123');
       }
-    }
-  }
-
-  async handleResetPasswordSubmit(e) {
-    e.preventDefault();
-    const username = document.getElementById('resetUsername').value.trim();
-    const newPassword = document.getElementById('resetNewPassword').value;
-    const confirmPassword = document.getElementById('resetConfirmPassword').value;
-
-    if (newPassword !== confirmPassword) {
-      alert('New passwords do not match!');
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/auth?action=reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, newPassword })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert(data.message || 'Password reset successfully!');
-        this.switchAuthTab('login');
-        document.getElementById('loginPassword').value = newPassword;
-      } else {
-        alert(data.error || 'Failed to reset password');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Password reset completed');
-      this.switchAuthTab('login');
     }
   }
 
@@ -152,7 +101,7 @@ class App {
       }
     } catch (e) {
       console.error(e);
-      this.showToast('⚡ Database initialized!', 'success');
+      this.showToast('⚡ Database & Tables initialized successfully!', 'success');
     }
   }
 
@@ -189,7 +138,7 @@ class App {
   }
 
   /* ==========================================================
-     COMPANY & SUPER ADMIN MANAGEMENT
+     COMPANY & SUPER ADMIN CONTROL PANEL
      ========================================================== */
   async loadCompanies() {
     try {
@@ -201,7 +150,6 @@ class App {
         const found = this.companies.find(c => c.id == savedCompId);
         this.currentCompany = found || this.companies[0];
       } else {
-        // Fallback default
         this.companies = [
           { id: 1, name: 'Acme Corporation', gst_number: '29ABCDE1234F1Z5', logo_data: '' },
           { id: 2, name: 'Apex Logistics Ltd', gst_number: '27AAAAA0000A1Z5', logo_data: '' }
@@ -229,6 +177,31 @@ class App {
   }
 
   openSuperAdminModal() {
+    this.renderCompanyList();
+    this.populateCompanyDropdowns();
+    this.openModal('superAdminModal');
+  }
+
+  switchSuperAdminTab(tab) {
+    const secComp = document.getElementById('saSectionCompanies');
+    const secLogins = document.getElementById('saSectionLogins');
+    const btnComp = document.getElementById('saTabCompanies');
+    const btnLogins = document.getElementById('saTabLogins');
+
+    if (tab === 'companies') {
+      secComp.style.display = 'block';
+      secLogins.style.display = 'none';
+      btnComp.className = 'action-btn';
+      btnLogins.className = 'action-btn secondary';
+    } else {
+      secComp.style.display = 'none';
+      secLogins.style.display = 'block';
+      btnLogins.className = 'action-btn';
+      btnComp.className = 'action-btn secondary';
+    }
+  }
+
+  renderCompanyList() {
     const listContainer = document.getElementById('companyListContainer');
     listContainer.innerHTML = this.companies.map(c => `
       <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface-bg); padding:10px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
@@ -240,38 +213,120 @@ class App {
           </div>
         </div>
         <div style="display:flex; gap:8px;">
+          <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editCompany(${c.id})">Edit</button>
           ${c.id !== this.currentCompany?.id ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.switchCompany(${c.id})">Switch</button>` : ''}
           <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteCompany(${c.id})">Delete</button>
         </div>
       </div>
     `).join('');
-    this.openModal('superAdminModal');
   }
 
-  async handleCreateCompany(e) {
+  populateCompanyDropdowns() {
+    const select = document.getElementById('newAuthCompany');
+    if (select) {
+      select.innerHTML = this.companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+  }
+
+  editCompany(compId) {
+    const comp = this.companies.find(c => c.id === compId);
+    if (!comp) return;
+
+    document.getElementById('editCompanyId').value = comp.id;
+    document.getElementById('newCompanyName').value = comp.name;
+    document.getElementById('newCompanyGst').value = comp.gst_number;
+    document.getElementById('companyFormTitle').innerText = `Edit Company: ${comp.name}`;
+    document.getElementById('cancelEditCompanyBtn').style.display = 'inline-block';
+  }
+
+  resetCompanyForm() {
+    document.getElementById('editCompanyId').value = '';
+    document.getElementById('newCompanyName').value = '';
+    document.getElementById('newCompanyGst').value = '';
+    document.getElementById('newCompanyLogo').value = '';
+    document.getElementById('companyFormTitle').innerText = 'Add New Company';
+    document.getElementById('cancelEditCompanyBtn').style.display = 'none';
+  }
+
+  async handleSaveCompany(e) {
     e.preventDefault();
+    const editId = document.getElementById('editCompanyId').value;
     const name = document.getElementById('newCompanyName').value.trim();
     const gst = document.getElementById('newCompanyGst').value.trim();
     const logoFile = document.getElementById('newCompanyLogo').files[0];
 
-    let logoData = '';
+    let logoData = null;
     if (logoFile) {
       logoData = await this.readFileAsDataURL(logoFile);
     }
 
     try {
+      const method = editId ? 'PUT' : 'POST';
+      const bodyPayload = editId ? { id: parseInt(editId), name, gst_number: gst, logo_data: logoData } : { name, gst_number: gst, logo_data: logoData || '' };
+
       const res = await fetch('/api/companies', {
-        method: 'POST',
+        method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, gst_number: gst, logo_data: logoData })
+        body: JSON.stringify(bodyPayload)
       });
       const data = await res.json();
       if (data.success) {
-        this.showToast(`Company '${name}' created successfully!`);
-        this.closeModal('superAdminModal');
+        this.showToast(`Company '${name}' saved successfully!`);
+        this.resetCompanyForm();
         await this.loadCompanies();
+        this.renderCompanyList();
       } else {
-        alert(data.error || 'Failed to create company');
+        alert(data.error || 'Failed to save company');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async handleCreateUserSubmit(e) {
+    e.preventDefault();
+    const username = document.getElementById('newAuthUsername').value.trim();
+    const password = document.getElementById('newAuthPassword').value;
+    const company_id = document.getElementById('newAuthCompany').value;
+    const role = document.getElementById('newAuthRole').value;
+
+    try {
+      const res = await fetch('/api/auth?action=create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role, company_id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(`User credentials for '${username}' created!`);
+        document.getElementById('newAuthUsername').value = '';
+        document.getElementById('newAuthPassword').value = '';
+      } else {
+        alert(data.error || 'Failed to create user');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async handleChangeUserPasswordSubmit(e) {
+    e.preventDefault();
+    const username = document.getElementById('changePassUsername').value.trim();
+    const newPassword = document.getElementById('changePassNew').value;
+
+    try {
+      const res = await fetch('/api/auth?action=change-user-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, newPassword })
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(`Password updated for user '${username}'!`);
+        document.getElementById('changePassUsername').value = '';
+        document.getElementById('changePassNew').value = '';
+      } else {
+        alert(data.error || 'Failed to update password');
       }
     } catch (err) {
       console.error(err);
@@ -295,6 +350,7 @@ class App {
       await fetch(`/api/companies?id=${compId}`, { method: 'DELETE' });
       this.showToast('Company deleted');
       await this.loadCompanies();
+      this.renderCompanyList();
     } catch (e) {
       console.error(e);
     }
@@ -403,7 +459,6 @@ class App {
 
   renderCurrentMenu() {
     const main = document.getElementById('mainContent');
-    const todayStr = new Date().toISOString().split('T')[0];
 
     switch (this.currentMenu) {
       case 'itr':
@@ -961,12 +1016,14 @@ class App {
   }
 
   /* ==========================================================
-     DOCUMENT UPLOADS & DYNAMIC MODAL INPUTS
+     DOCUMENT UPLOADS, PROGRESS BAR LIST & DYNAMIC INPUTS
      ========================================================== */
   openDocUploadModal(menuKey, categories) {
     document.getElementById('docCategorySelect').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
     const formFields = document.getElementById('dynamicFormFields');
     formFields.innerHTML = '';
+    this.pendingUploadFiles = [];
+    this.renderSelectedFilesList();
 
     if (menuKey === 'office') {
       formFields.innerHTML = `
@@ -1068,12 +1125,59 @@ class App {
     this.setupDatePickers();
   }
 
+  // Handle file selection and render progress bar list matching user reference image
+  async handleFileSelect(e) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const dataUrl = await this.readFileAsDataURL(file);
+      const sizeKB = Math.round(file.size / 1024);
+      const formattedSize = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)}M` : `${sizeKB}K`;
+
+      this.pendingUploadFiles.push({
+        id: Date.now() + i,
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        sizeLabel: formattedSize,
+        data: dataUrl,
+        progress: 100
+      });
+    }
+
+    this.renderSelectedFilesList();
+  }
+
+  removeSelectedFile(fileId) {
+    this.pendingUploadFiles = this.pendingUploadFiles.filter(f => f.id !== fileId);
+    this.renderSelectedFilesList();
+  }
+
+  renderSelectedFilesList() {
+    const container = document.getElementById('selectedFilesList');
+    if (!container) return;
+
+    container.innerHTML = this.pendingUploadFiles.map(f => `
+      <div class="file-upload-item">
+        <div class="file-item-info">
+          <span class="file-item-name" title="${f.name}">${f.name}</span>
+          <span class="file-item-size">(${f.sizeLabel})</span>
+        </div>
+        <div class="file-progress-container">
+          <div class="file-progress-fill" style="width: ${f.progress}%;"></div>
+        </div>
+        <button type="button" class="file-item-remove" onclick="app.removeSelectedFile(${f.id})" title="Remove File">&times;</button>
+      </div>
+    `).join('');
+  }
+
   async handleDocUploadSubmit(e) {
     e.preventDefault();
     const category = document.getElementById('docCategorySelect').value;
     const docDate = document.getElementById('docDateInput').value;
     const amount = parseFloat(document.getElementById('docAmountInput').value) || 0;
-    const fileInput = document.getElementById('docFileInput');
 
     const metadata = {};
     if (this.currentMenu === 'office' && category === 'Guest Maintenance') {
@@ -1101,20 +1205,6 @@ class App {
       metadata.purpose = document.getElementById('formPurpose')?.value || '';
     }
 
-    const filesList = [];
-    if (fileInput.files && fileInput.files.length > 0) {
-      for (let i = 0; i < fileInput.files.length; i++) {
-        const file = fileInput.files[i];
-        const dataUrl = await this.readFileAsDataURL(file);
-        filesList.push({
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          data: dataUrl
-        });
-      }
-    }
-
     const payload = {
       company_id: this.currentCompany.id,
       menu_key: this.currentMenu,
@@ -1122,7 +1212,7 @@ class App {
       doc_date: docDate,
       amount,
       metadata,
-      files: filesList
+      files: this.pendingUploadFiles.map(f => ({ name: f.name, type: f.type, size: f.size, data: f.data }))
     };
 
     try {
@@ -1135,9 +1225,10 @@ class App {
       if (data.success) {
         this.showToast(`Document entry saved & ₹ ${amount.toLocaleString()} deducted from daily budget!`);
         this.closeModal('docUploadModal');
+        this.pendingUploadFiles = [];
         await this.loadDocuments();
         await this.loadBudget();
-        this.renderCurrentMenu();
+        this.renderCurrentMenu(); // Immediately re-render screen view!
       } else {
         alert(data.error || 'Failed to upload documents');
       }
@@ -1159,7 +1250,7 @@ class App {
     }
   }
 
-  /* Universal Document Viewer */
+  /* Universal Document Viewer & Editor */
   async viewDocument(docId, fileId) {
     const doc = this.documents.find(d => d.id === docId);
     if (!doc) return;

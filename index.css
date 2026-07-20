@@ -64,7 +64,7 @@ body {
   border: 1px solid var(--border-highlight);
   border-radius: var(--radius-xl);
   width: 100%;
-  max-width: 440px;
+  max-width: 420px;
   padding: 32px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
   display: flex;
@@ -82,31 +82,77 @@ body {
   color: #ffffff;
 }
 
-.auth-tabs {
+/* File Upload Progress List (Matching Reference Image) */
+.file-upload-list {
   display: flex;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid var(--border-color);
-  padding: 4px;
-  border-radius: var(--radius-md);
-  gap: 4px;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
 }
 
-.auth-tab {
+.file-upload-item {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.file-item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
   flex: 1;
+}
+
+.file-item-name {
+  font-weight: 700;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  max-width: 220px;
+}
+
+.file-item-size {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.file-progress-container {
+  width: 120px;
+  height: 14px;
+  background: #cbd5e1;
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid #94a3b8;
+}
+
+.file-progress-fill {
+  height: 100%;
+  background: #6366f1;
+  width: 0%;
+  transition: width 0.2s ease;
+}
+
+.file-item-remove {
   background: none;
   border: none;
-  color: var(--text-muted);
-  padding: 8px;
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-weight: 600;
+  color: #64748b;
+  font-weight: 700;
+  font-size: 1.1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  line-height: 1;
+  padding: 2px 4px;
 }
 
-.auth-tab.active {
-  background: var(--primary);
-  color: #ffffff;
+.file-item-remove:hover {
+  color: #ef4444;
 }
 
 /* 15-Day Alert Scrolling Marquee Ticker */

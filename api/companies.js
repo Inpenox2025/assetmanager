@@ -28,6 +28,21 @@ module.exports = async function handler(req, res) {
       return res.status(201).json({ success: true, company: result[0] });
     }
 
+    if (req.method === "PUT") {
+      const { id, name, gst_number, logo_data } = req.body || {};
+      if (!id || !name || !gst_number) {
+        return res.status(400).json({ error: "Company ID, Name and GST Number are required" });
+      }
+
+      const result = await sql`
+        UPDATE companies
+        SET name = ${name}, gst_number = ${gst_number}, logo_data = COALESCE(${logo_data}, logo_data)
+        WHERE id = ${id}
+        RETURNING *
+      `;
+      return res.status(200).json({ success: true, company: result[0] });
+    }
+
     if (req.method === "DELETE") {
       const id = req.query.id || (req.body && req.body.id);
       if (!id) return res.status(400).json({ error: "Company ID is required" });

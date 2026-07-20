@@ -21,12 +21,9 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: "Username and Password are required" });
       }
 
-      // Check users table
       const users = await sql`SELECT * FROM users WHERE LOWER(username) = LOWER(${username})`;
-      
       let user = users[0];
 
-      // Default fallback match for superadmin if setup hasn't run
       if (!user && (username === "superadmin" || username === "admin")) {
         if (password === "admin123") {
           user = {
@@ -65,59 +62,51 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 2. RESET PASSWORD ACTION
-    if (action === "reset-password" && req.method === "POST") {
+    // 2. CREATE USER CREDENTIALS (SUPER ADMIN ONLY)
+    if (action === "create-user" && req.method === "POST") {
+      const { username, password, role, company_id, email } = req.body || {};
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and Password are required" });
+      }
+
+      const passHash = await bcrypt.hash(password, 10);
+      const newUsers = await sql`
+        INSERT INTO users (username, password_hash, role, company_id, email)
+        VALUES (${username}, ${passHash}, ${role || 'company_admin'}, ${company_id || null}, ${email || ''})
+        RETURNING id, username, role, company_id, email
+      `;
+
+      return res.status(201).json({
+        success: true,
+        message: `User '${username}' created successfully!`,
+        user: newUsers[0]
+      });
+    }
+
+    // 3. CHANGE USER PASSWORD (SUPER ADMIN ONLY)
+    if (action === "change-user-password" && req.method === "POST") {
       const { username, newPassword } = req.body || {};
       if (!username || !newPassword) {
         return res.status(400).json({ error: "Username and New Password are required" });
       }
 
-      if (newPassword.length < 4) {
-        return res.status(400).json({ error: "New Password must be at least 4 characters long" });
-      }
-
       const newHash = await bcrypt.hash(newPassword, 10);
-      
-      const updated = await sql`
+      await sql`
         UPDATE users
         SET password_hash = ${newHash}
         WHERE LOWER(username) = LOWER(${username})
-        RETURNING id, username, role
       `;
-
-      if (updated.length === 0) {
-        // Create user if not exists yet
-        const created = await sql`
-          INSERT INTO users (username, password_hash, role)
-          VALUES (${username}, ${newHash}, 'super_admin')
-          RETURNING id, username, role
-        `;
-        return res.status(200).json({
-          success: true,
-          message: `Password reset successfully for user '${username}'!`
-        });
-      }
 
       return res.status(200).json({
         success: true,
-        message: `Password reset successfully for user '${username}'!`
+        message: `Password changed successfully for user '${username}'!`
       });
     }
 
-    // 3. GET CURRENT USER
-    if (action === "me" && req.method === "GET") {
-      const authHeader = req.headers.authorization;
-      if (!authHeader) {
-        return res.status(401).json({ error: "No Authorization token provided" });
-      }
-
-      const token = authHeader.replace("Bearer ", "");
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        return res.status(200).json({ success: true, user: decoded });
-      } catch (err) {
-        return res.status(401).json({ error: "Invalid or expired session token" });
-      }
+    // 4. GET USERS LIST (SUPER ADMIN ONLY)
+    if (action === "get-users" && req.method === "GET") {
+      const users = await sql`SELECT id, username, role, company_id, email, created_at FROM users ORDER BY id DESC`;
+      return res.status(200).json({ success: true, users });
     }
 
     return res.status(405).json({ error: "Method not allowed" });
