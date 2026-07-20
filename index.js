@@ -1470,6 +1470,36 @@ class App {
     document.getElementById('docDateInput').value = formattedDate;
     document.getElementById('docAmountInput').value = doc.amount || 0;
 
+    // PREFILL ALL METADATA DETAILS ACROSS ALL MODULES
+    const meta = doc.metadata || {};
+    if (doc.menu_key === 'office') {
+      if (doc.category === 'Guest Maintenance') {
+        const guestFields = document.getElementById('guestFields');
+        if (guestFields) guestFields.style.display = 'block';
+        if (document.getElementById('guestName')) document.getElementById('guestName').value = meta.guest_name || '';
+        if (document.getElementById('guestHotelAmt')) document.getElementById('guestHotelAmt').value = meta.hotel_amt || 0;
+        if (document.getElementById('guestFoodAmt')) document.getElementById('guestFoodAmt').value = meta.food_amt || 0;
+        if (document.getElementById('guestOthersAmt')) document.getElementById('guestOthersAmt').value = meta.others_amt || 0;
+      }
+    } else if (doc.menu_key === 'travel') {
+      if (document.getElementById('travelPerson')) document.getElementById('travelPerson').value = meta.person_name || '';
+      if (document.getElementById('travelBoarding')) document.getElementById('travelBoarding').value = meta.boarding || '';
+      if (document.getElementById('travelDestination')) document.getElementById('travelDestination').value = meta.destination || '';
+    } else if (doc.menu_key === 'property') {
+      if (document.getElementById('propName')) document.getElementById('propName').value = meta.property_name || '';
+      if (document.getElementById('propParty')) document.getElementById('propParty').value = meta.seller_name || meta.buyer_name || '';
+      if (document.getElementById('propLeftAmt')) document.getElementById('propLeftAmt').value = meta.left_amount || 0;
+      if (document.getElementById('propRightAmt')) document.getElementById('propRightAmt').value = meta.right_amount || 0;
+    } else if (doc.menu_key === 'advances') {
+      if (document.getElementById('advEmpSelect')) document.getElementById('advEmpSelect').value = meta.person_name || '';
+      if (document.getElementById('advPurpose')) document.getElementById('advPurpose').value = meta.purpose || '';
+    } else if (doc.menu_key === 'bank') {
+      if (document.getElementById('bankName')) document.getElementById('bankName').value = meta.bank_name || '';
+    } else if (doc.menu_key === 'formalities') {
+      if (document.getElementById('formPerson')) document.getElementById('formPerson').value = meta.person_name || '';
+      if (document.getElementById('formPurpose')) document.getElementById('formPurpose').value = meta.purpose || '';
+    }
+
     this.pendingUploadFiles = (doc.files || []).map((f, idx) => ({
       id: f.id || (Date.now() + idx),
       name: f.file_name,
@@ -1656,6 +1686,7 @@ class App {
     if (file) {
       title.innerText = `Previewing: ${file.file_name}`;
       downloadBtn.href = file.file_data || '#';
+      downloadBtn.style.display = 'inline-flex';
       let dateDisplay = doc.doc_date;
       if (dateDisplay && dateDisplay.includes('T')) dateDisplay = dateDisplay.split('T')[0];
 
@@ -1678,11 +1709,18 @@ class App {
       }
     } else {
       title.innerText = `Document Entry #${doc.id}`;
+      downloadBtn.style.display = 'none';
+      downloadBtn.href = '#';
+      let dateDisplay = doc.doc_date;
+      if (dateDisplay && dateDisplay.includes('T')) dateDisplay = dateDisplay.split('T')[0];
+      metaInfo.innerText = `No files attached to this record | Date: ${dateDisplay}`;
+
       previewArea.innerHTML = `
         <div style="text-align:center; padding:20px; color:white;">
           <div style="font-size:3rem; margin-bottom:10px;">📋</div>
           <div style="font-weight:700; font-size:1.1rem;">Category: ${doc.category}</div>
-          <p style="color:var(--text-muted); margin-top:6px;">Amount: ₹${parseFloat(doc.amount || 0).toLocaleString('en-IN')} | Date: ${doc.doc_date}</p>
+          <p style="color:var(--text-muted); margin-top:6px;">Amount: ₹${parseFloat(doc.amount || 0).toLocaleString('en-IN')} | Date: ${dateDisplay}</p>
+          <div style="font-size:0.85rem; color:var(--text-dim); margin-top:8px;">(No file was uploaded for this record)</div>
         </div>
       `;
     }
