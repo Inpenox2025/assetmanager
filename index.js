@@ -1344,6 +1344,17 @@ class App {
     document.getElementById('docFileInput').value = '';
     this.renderSelectedFilesList();
 
+    const amountLabel = document.getElementById('docAmountLabel');
+    const submitBtn = document.getElementById('docSubmitBtn');
+
+    if (menuKey === 'property') {
+      if (amountLabel) amountLabel.innerText = 'Total Transaction Value (₹) [Record Only - Does NOT deduct from Maintenance]';
+      if (submitBtn) submitBtn.innerText = 'Save Property Record';
+    } else {
+      if (amountLabel) amountLabel.innerText = 'Amount (₹) - Deducted from Daily Maintenance';
+      if (submitBtn) submitBtn.innerText = 'Save Entry & Deduct Maintenance';
+    }
+
     if (menuKey === 'office') {
       formFields.innerHTML = `
         <div class="form-group" id="guestFields" style="display:none;">
@@ -1580,7 +1591,11 @@ class App {
       });
       const data = await res.json();
       if (data.success) {
-        this.showToast(isEditing ? 'Document entry updated successfully!' : `Document entry saved & ₹ ${amount.toLocaleString()} deducted from daily budget!`);
+        if (this.currentMenu === 'property') {
+          this.showToast(isEditing ? 'Property transaction record updated successfully!' : `Property transaction record saved!`);
+        } else {
+          this.showToast(isEditing ? 'Document entry updated successfully!' : `Document entry saved & ₹ ${amount.toLocaleString()} deducted from daily budget!`);
+        }
         this.closeModal('docUploadModal');
         this.pendingUploadFiles = [];
         this.editingDocId = null;

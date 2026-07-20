@@ -277,7 +277,7 @@
           <div id="dynamicFormFields"></div>
 
           <div class="form-group">
-            <label class="form-label">Amount (₹) - Deducted from Daily Maintenance</label>
+            <label class="form-label" id="docAmountLabel">Amount (₹) - Deducted from Daily Maintenance</label>
             <input type="number" step="0.01" id="docAmountInput" class="form-input" placeholder="0.00">
           </div>
 
@@ -291,7 +291,7 @@
 
           <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
             <button type="button" class="action-btn secondary" onclick="app.closeModal('docUploadModal')">Cancel</button>
-            <button type="submit" class="action-btn">Save Entry & Deduct Maintenance</button>
+            <button type="submit" class="action-btn" id="docSubmitBtn">Save Entry & Deduct Maintenance</button>
           </div>
         </form>
       </div>
