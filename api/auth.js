@@ -70,9 +70,10 @@ module.exports = async function handler(req, res) {
       }
 
       const passHash = await bcrypt.hash(password, 10);
+      const numCompId = company_id ? parseInt(company_id) : null;
       const newUsers = await sql`
         INSERT INTO users (username, password_hash, role, company_id, email)
-        VALUES (${username}, ${passHash}, ${role || 'company_admin'}, ${company_id || null}, ${email || ''})
+        VALUES (${username}, ${passHash}, ${role || 'company_admin'}, ${numCompId}, ${email || ''})
         RETURNING id, username, role, company_id, email
       `;
 
@@ -104,9 +105,23 @@ module.exports = async function handler(req, res) {
     }
 
     // 4. GET USERS LIST (SUPER ADMIN ONLY)
-    if (action === "get-users" && req.method === "GET") {
-      const users = await sql`SELECT id, username, role, company_id, email, created_at FROM users ORDER BY id DESC`;
+    if (action === "get-users") {
+      const users = await sql`
+        SELECT u.id, u.username, u.role, u.company_id, u.email, u.created_at, c.name as company_name
+        FROM users u
+        LEFT JOIN companies c ON u.company_id = c.id
+        ORDER BY u.id DESC
+      `;
       return res.status(200).json({ success: true, users });
+    }
+
+    // 5. DELETE USER (SUPER ADMIN ONLY)
+    if (action === "delete-user") {
+      const id = req.query.id || (req.body && req.body.id);
+      if (!id) return res.status(400).json({ error: "User ID is required" });
+
+      await sql`DELETE FROM users WHERE id = ${parseInt(id)}`;
+      return res.status(200).json({ success: true, message: "User deleted successfully" });
     }
 
     return res.status(405).json({ error: "Method not allowed" });

@@ -8,6 +8,7 @@ class App {
     this.documents = [];
     this.employees = [];
     this.vehicles = [];
+    this.registeredUsers = [];
     this.maskedState = {}; // Property left amount mask toggle state
     this.currentViewingDoc = null;
     this.currentUser = null;
@@ -198,17 +199,18 @@ class App {
     localStorage.setItem('activeCompanyId', this.currentCompany.id);
   }
 
-  openSuperAdminModal() {
+  async openSuperAdminModal() {
     if (this.currentUser && this.currentUser.role !== 'super_admin') {
       alert('Access Denied: Only Super Admin can manage companies and user logins.');
       return;
     }
     this.renderCompanyList();
     this.populateCompanyDropdowns();
+    await this.loadRegisteredUsers();
     this.openModal('superAdminModal');
   }
 
-  switchSuperAdminTab(tab) {
+  async switchSuperAdminTab(tab) {
     const secComp = document.getElementById('saSectionCompanies');
     const secLogins = document.getElementById('saSectionLogins');
     const btnComp = document.getElementById('saTabCompanies');
@@ -224,6 +226,7 @@ class App {
       secLogins.style.display = 'block';
       btnLogins.className = 'action-btn';
       btnComp.className = 'action-btn secondary';
+      await this.loadRegisteredUsers();
     }
   }
 
@@ -251,6 +254,74 @@ class App {
     const select = document.getElementById('newAuthCompany');
     if (select) {
       select.innerHTML = this.companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+  }
+
+  async loadRegisteredUsers() {
+    try {
+      const res = await fetch('/api/auth?action=get-users');
+      const data = await res.json();
+      if (data.success) {
+        this.registeredUsers = data.users || [];
+        this.renderRegisteredUsersList();
+      }
+    } catch (e) {
+      console.error('Failed to load registered users:', e);
+    }
+  }
+
+  renderRegisteredUsersList() {
+    const container = document.getElementById('userLoginsListContainer');
+    if (!container) return;
+
+    if (this.registeredUsers.length === 0) {
+      container.innerHTML = `<div style="color:var(--text-muted); font-size:0.85rem; padding:10px;">No registered company admin or employee logins found.</div>`;
+      return;
+    }
+
+    container.innerHTML = this.registeredUsers.map(u => {
+      const roleBadge = u.role === 'super_admin' ? '<span class="card-badge badge-warning">Super Admin</span>' :
+                        u.role === 'company_admin' ? '<span class="card-badge badge-info">Company Admin</span>' :
+                        '<span class="card-badge badge-success">Employee</span>';
+
+      const companyLabel = u.company_name || (u.company_id ? `Company #${u.company_id}` : (u.role === 'super_admin' ? 'All Companies' : 'Unassigned'));
+
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface-bg); padding:10px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+          <div>
+            <div style="font-weight:700; color:white; display:flex; align-items:center; gap:8px;">
+              👤 ${u.username} ${roleBadge}
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+              Assigned Company: <strong style="color:#60a5fa;">${companyLabel}</strong>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.fillResetPassword('${u.username}')">🔑 Reset Pass</button>
+            ${u.username !== 'superadmin' ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteUser(${u.id})">Delete</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  fillResetPassword(username) {
+    document.getElementById('changePassUsername').value = username;
+    document.getElementById('changePassNew').focus();
+    this.showToast(`Selected user '${username}' for password update.`);
+  }
+
+  async deleteUser(userId) {
+    if (!confirm('Are you sure you want to delete this user login?')) return;
+    try {
+      const res = await fetch(`/api/auth?action=delete-user&id=${userId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('User login deleted');
+        await this.loadRegisteredUsers();
+      }
+    } catch (e) {
+      console.error(e);
     }
   }
 
@@ -327,6 +398,7 @@ class App {
         this.showToast(`User credentials for '${username}' created!`);
         document.getElementById('newAuthUsername').value = '';
         document.getElementById('newAuthPassword').value = '';
+        await this.loadRegisteredUsers();
       } else {
         alert(data.error || 'Failed to create user');
       }
@@ -351,6 +423,7 @@ class App {
         this.showToast(`Password updated for user '${username}'!`);
         document.getElementById('changePassUsername').value = '';
         document.getElementById('changePassNew').value = '';
+        await this.loadRegisteredUsers();
       } else {
         alert(data.error || 'Failed to update password');
       }
@@ -1362,7 +1435,6 @@ class App {
       });
     }
 
-    // Reset input element value so user can select again cleanly
     e.target.value = '';
     this.renderSelectedFilesList();
   }

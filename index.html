@@ -159,7 +159,7 @@
 
     <!-- Super Admin Control Panel Modal -->
     <div class="modal-overlay" id="superAdminModal">
-      <div class="modal-card" style="max-width: 750px;">
+      <div class="modal-card" style="max-width: 780px;">
         <div class="modal-header">
           <h3 class="modal-title">Super Admin Control Panel</h3>
           <button class="modal-close" onclick="app.closeModal('superAdminModal')">&times;</button>
@@ -237,6 +237,9 @@
             </div>
             <button type="submit" class="action-btn" style="background: linear-gradient(135deg, #10b981, #059669);">Update Password</button>
           </form>
+
+          <h4 style="margin-top:20px; margin-bottom:10px;">Registered User Logins & Appointed Admins</h4>
+          <div id="userLoginsListContainer" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
 
       </div>

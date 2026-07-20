@@ -3,7 +3,7 @@ const { neon } = require('@neondatabase/serverless');
 // In-memory mock database store when DATABASE_URL is not set for local offline dev
 const memoryStore = {
   users: [
-    { id: 1, username: 'superadmin', password_hash: '$2a$10$abcdefghijklmnopqrstuu', role: 'super_admin', email: 'admin@inducare.com' }
+    { id: 1, username: 'superadmin', password_hash: '$2a$10$abcdefghijklmnopqrstuu', role: 'super_admin', email: 'admin@inducare.com', company_id: null }
   ],
   companies: [
     { id: 1, name: 'Acme Corporation', gst_number: '29ABCDE1234F1Z5', logo_data: '', created_at: new Date().toISOString() },
@@ -38,13 +38,19 @@ function getMemorySQL() {
     }
 
     // USERS
-    if (query.includes('users')) {
+    if (query.includes('users') || query.includes('USERS')) {
       if (upperQuery.startsWith('SELECT')) {
         if (query.includes('WHERE LOWER(username) =')) {
           const uname = (values[0] || '').toLowerCase();
           return memoryStore.users.filter(u => u.username.toLowerCase() === uname);
         }
-        return [...memoryStore.users];
+        return memoryStore.users.map(u => {
+          const comp = memoryStore.companies.find(c => c.id === u.company_id);
+          return {
+            ...u,
+            company_name: comp ? comp.name : (u.role === 'super_admin' ? 'All Companies (Super Admin)' : 'Unassigned')
+          };
+        }).sort((a,b) => b.id - a.id);
       }
       if (upperQuery.startsWith('INSERT INTO USERS')) {
         const username = values[0];
@@ -69,6 +75,11 @@ function getMemorySQL() {
           user.password_hash = passHash;
           return [user];
         }
+        return [];
+      }
+      if (upperQuery.startsWith('DELETE FROM USERS')) {
+        const id = parseInt(values[0]);
+        memoryStore.users = memoryStore.users.filter(u => u.id !== id);
         return [];
       }
     }
@@ -336,7 +347,7 @@ function getMemorySQL() {
           id: serviceIdCounter++,
           vehicle_id: vehId,
           service_date: sDate,
-          service_amount: sAmount,
+          service_amount: sAmt,
           kms_driven: kms,
           document_id: docId,
           created_at: new Date().toISOString()
