@@ -358,6 +358,23 @@
       </div>
     </div>
 
+    <!-- Session Terminated / Logged Out Elsewhere Modal -->
+    <div class="modal-overlay" id="sessionTerminatedModal">
+      <div class="modal-card" style="max-width: 480px; text-align: center;">
+        <div style="font-size: 2.8rem; margin-bottom: 6px;">🛡️</div>
+        <h3 class="modal-title" style="color: #f87171; font-size: 1.3rem; margin-bottom: 8px; justify-content: center;">Session Terminated</h3>
+        <p style="color: #cbd5e1; font-size: 0.92rem; line-height: 1.5; margin-bottom: 16px;" id="sessionTerminatedMsg">
+          Your account was logged in from another browser or device. For your privacy and security, this session has been automatically logged out.
+        </p>
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: var(--radius-md); padding: 12px; margin-bottom: 18px; font-size: 0.82rem; color: #fca5a5; text-align: left;">
+          🔒 <strong>Single Session Policy:</strong> Accounts cannot be active simultaneously on multiple devices.
+        </div>
+        <button type="button" class="action-btn" style="width: 100%; justify-content: center; padding: 12px; font-size: 0.95rem; background: linear-gradient(135deg, #ef4444, #dc2626);" onclick="app.acknowledgeSessionTerminated()">
+          🔑 Back to Login Portal
+        </button>
+      </div>
+    </div>
+
     <!-- Universal Document Entry Modal -->
     <div class="modal-overlay" id="docUploadModal">
       <div class="modal-card">

@@ -151,9 +151,20 @@ class App {
 
   startSessionWatcher() {
     if (this.sessionTimer) clearInterval(this.sessionTimer);
+
+    // Fast 3-second polling for immediate session termination detection
     this.sessionTimer = setInterval(() => {
       this.verifyActiveSession();
-    }, 15000); // Check session token every 15s
+    }, 3000);
+
+    // Instant check when switching back to browser tab/window
+    if (!this.sessionListenersAdded) {
+      window.addEventListener('focus', () => this.verifyActiveSession());
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) this.verifyActiveSession();
+      });
+      this.sessionListenersAdded = true;
+    }
   }
 
   async verifyActiveSession() {
@@ -166,12 +177,30 @@ class App {
       const data = await res.json();
       if (data.session_invalid) {
         if (this.sessionTimer) clearInterval(this.sessionTimer);
-        this.logout();
-        alert('⚠️ Security Alert: Your session has ended because your account was logged in from another device.');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('activeMenuKey');
+        this.currentUser = null;
+        this.currentCompany = null;
+        this.documents = [];
+        this.employees = [];
+        this.vehicles = [];
+
+        const msgEl = document.getElementById('sessionTerminatedMsg');
+        if (msgEl && data.error) {
+          msgEl.innerText = data.error;
+        }
+
+        this.openModal('sessionTerminatedModal');
       }
     } catch (e) {
       console.error('Session verify check failed:', e);
     }
+  }
+
+  acknowledgeSessionTerminated() {
+    this.closeModal('sessionTerminatedModal');
+    this.showAuthScreen();
   }
 
   togglePasswordVisibility(inputId, btnEl) {
