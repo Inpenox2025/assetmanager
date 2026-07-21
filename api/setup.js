@@ -21,15 +21,16 @@ module.exports = async function handler(req, res) {
         email VARCHAR(255),
         last_login TIMESTAMP,
         last_login_ip VARCHAR(100),
-        current_session_token VARCHAR(255),
+        current_session_token TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `;
 
-    // Safely add missing columns to existing users table
+    // Safely add missing columns to existing users table & expand token column to TEXT
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(100)`;
-    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS current_session_token VARCHAR(255)`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS current_session_token TEXT`;
+    await sql`ALTER TABLE users ALTER COLUMN current_session_token TYPE TEXT`;
 
     // 0.1 Login Activities Tracking Table
     await sql`

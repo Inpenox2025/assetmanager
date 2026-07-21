@@ -75,12 +75,26 @@ module.exports = async function handler(req, res) {
 
       const nowISO = new Date().toISOString();
 
-      // Update User Record with last_login, last_login_ip, and current_session_token
-      await sql`
-        UPDATE users
-        SET last_login = ${nowISO}, last_login_ip = ${ipAddress}, current_session_token = ${token}
-        WHERE id = ${user.id}
-      `;
+      // Update User Record with last_login, last_login_ip, and current_session_token (with auto-column expanding)
+      try {
+        await sql`
+          UPDATE users
+          SET last_login = ${nowISO}, last_login_ip = ${ipAddress}, current_session_token = ${token}
+          WHERE id = ${user.id}
+        `;
+      } catch (colErr) {
+        try {
+          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS current_session_token TEXT`;
+          await sql`ALTER TABLE users ALTER COLUMN current_session_token TYPE TEXT`;
+          await sql`
+            UPDATE users
+            SET last_login = ${nowISO}, last_login_ip = ${ipAddress}, current_session_token = ${token}
+            WHERE id = ${user.id}
+          `;
+        } catch (retryErr) {
+          console.error("Failed to update user session record:", retryErr);
+        }
+      }
 
       let compName = 'All Companies (Super Admin)';
       if (user.company_id) {
