@@ -2,6 +2,9 @@
 
 A comprehensive, enterprise-grade web application built for multi-company asset tracking, document vault management, daily maintenance budget allocation, vehicle service alerts, HR payroll, and real-time financial tracking.
 
+> 🌐 **Official Website**: [https://inspenox.in](https://inspenox.in)  
+> 📦 **GitHub Repository**: [https://github.com/Inpenox2025/assetmanager](https://github.com/Inpenox2025/assetmanager)
+
 ---
 
 ## 🌟 Overview & Highlights
@@ -189,10 +192,14 @@ Upon initializing the system or running locally in mock mode, the following Supe
 
 **Copyright © 2026 Inspenox. All Rights Reserved.**
 
+🌐 **Official Website**: [https://inspenox.in](https://inspenox.in)  
+📧 **Contact & Support**: [https://inspenox.in](https://inspenox.in)
+
 This software and associated documentation files are the exclusive proprietary property of **Inspenox**. 
 
 ### 🚫 Restrictions & Protection
 - **Unauthorized Copying Prohibited**: No part of this codebase, architecture, software, or design may be copied, reproduced, modified, republished, uploaded, posted, transmitted, or distributed in any form or by any means without prior explicit written permission from **Inspenox**.
 - **Reverse Engineering**: Reverse engineering, decompiling, disassembling, or deriving source code or underlying algorithms from this application is strictly prohibited.
 - **Commercial Usage**: Unauthorized commercial deployment, resale, sublicensing, or redistribution of this application is strictly forbidden under law.
+
 
