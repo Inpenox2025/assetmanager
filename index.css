@@ -533,6 +533,60 @@ html, body {
   outline: none;
 }
 
+/* ── Sleek Page Loader & Skeleton Animation ── */
+.page-loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 380px;
+  width: 100%;
+  padding: 40px 20px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(8px);
+  animation: pageFadeIn 0.25s ease-in-out;
+}
+
+.spinner-ring {
+  width: 52px;
+  height: 52px;
+  border: 4px solid rgba(99, 102, 241, 0.15);
+  border-left-color: #6366f1;
+  border-top-color: #818cf8;
+  border-radius: 50%;
+  animation: spinnerRotate 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+  box-shadow: 0 0 24px rgba(99, 102, 241, 0.35);
+  margin-bottom: 18px;
+}
+
+@keyframes spinnerRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.loader-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+}
+
+.loader-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 
 /* ── Password Visibility Toggle ── */
 .password-input-wrapper { position: relative; display: flex; align-items: center; width: 100%; }

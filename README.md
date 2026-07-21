@@ -185,8 +185,14 @@ Upon initializing the system or running locally in mock mode, the following Supe
    ```
    *Or click the "Initialize DB & Tables" action within the admin portal.*
 
----
+## 📄 License & Copyright
 
-## 📄 License
+**Copyright © 2026 Inspenox. All Rights Reserved.**
 
-This project is proprietary software designed for multi-company asset, HR, and financial management. All rights reserved.
+This software and associated documentation files are the exclusive proprietary property of **Inspenox**. 
+
+### 🚫 Restrictions & Protection
+- **Unauthorized Copying Prohibited**: No part of this codebase, architecture, software, or design may be copied, reproduced, modified, republished, uploaded, posted, transmitted, or distributed in any form or by any means without prior explicit written permission from **Inspenox**.
+- **Reverse Engineering**: Reverse engineering, decompiling, disassembling, or deriving source code or underlying algorithms from this application is strictly prohibited.
+- **Commercial Usage**: Unauthorized commercial deployment, resale, sublicensing, or redistribution of this application is strictly forbidden under law.
+

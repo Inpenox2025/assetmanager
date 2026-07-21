@@ -3,7 +3,7 @@ class App {
   constructor() {
     this.companies = [];
     this.currentCompany = null;
-    this.currentMenu = 'dashboard';
+    this.currentMenu = localStorage.getItem('activeMenuKey') || 'dashboard';
     this.budget = { set_amount: 0, carried_over_amount: 0, total_spent: 0, remaining_amount: 0 };
     this.documents = [];
     this.employees = [];
@@ -61,6 +61,14 @@ class App {
     } else {
       if (saBtn) saBtn.style.display = 'inline-flex';
     }
+
+    const savedMenu = localStorage.getItem('activeMenuKey');
+    if (savedMenu) {
+      this.currentMenu = savedMenu;
+    }
+    document.querySelectorAll('.nav-item').forEach(el => {
+      el.classList.toggle('active', el.getAttribute('data-menu') === this.currentMenu);
+    });
 
     await this.loadCompanies();
   }
@@ -137,6 +145,7 @@ class App {
   logout() {
     localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('activeMenuKey');
     this.currentUser = null;
     this.currentCompany = null;
     this.documents = [];
@@ -531,8 +540,43 @@ class App {
   /* ==========================================================
      DAILY BUDGET ENGINE & SEPARATE COMPANY DATA REFRESH
      ========================================================== */
+  getMenuName(menuKey) {
+    const map = {
+      dashboard: 'Executive Dashboard',
+      budget: 'Daily Budget Manager',
+      itr: 'Menu 1: ITR (Income Tax Returns)',
+      gst: 'Menu 2: GST Returns & Paid Statements',
+      bank: 'Menu 3: Bank Loans & EMI Management',
+      office: 'Menu 4: Office Maintenance',
+      employees: 'Menu 5: HR & Employees Payroll',
+      vehicles: 'Menu 6: Vehicle Fleet Status',
+      travel: 'Menu 7: Travelling Allowance',
+      property: 'Menu 8: Property Sales & Purchases',
+      advances: 'Menu 9: Employee Advances',
+      formalities: 'Menu 10: Company Formalities'
+    };
+    return map[menuKey] || 'Module Data';
+  }
+
+  showLoading(message = 'Loading Page Content...') {
+    const main = document.getElementById('mainContent');
+    if (!main) return;
+    const title = this.getMenuName(this.currentMenu);
+    main.innerHTML = `
+      <div class="page-loader-container">
+        <div class="spinner-ring"></div>
+        <div class="loader-title">${title}</div>
+        <div class="loader-subtitle">
+          <span>⚡</span> ${message}
+        </div>
+      </div>
+    `;
+  }
+
   async refreshData() {
     if (!this.currentCompany) return;
+    this.showLoading(`Syncing company records & module data...`);
+
     this.documents = [];
     this.employees = [];
     this.vehicles = [];
@@ -623,12 +667,18 @@ class App {
      ========================================================== */
   switchMenu(menuKey) {
     this.currentMenu = menuKey;
+    localStorage.setItem('activeMenuKey', menuKey);
+
     document.querySelectorAll('.nav-item').forEach(el => {
       el.classList.toggle('active', el.getAttribute('data-menu') === menuKey);
     });
     // Auto-close sidebar on mobile after navigation
     if (window.innerWidth <= 768) this.closeSidebar();
-    this.renderCurrentMenu();
+
+    this.showLoading(`Loading ${this.getMenuName(menuKey)}...`);
+    setTimeout(() => {
+      this.renderCurrentMenu();
+    }, 50);
   }
 
   renderCurrentMenu() {
