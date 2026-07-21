@@ -789,9 +789,8 @@ html, body {
 
   /* Header actions — compact on mobile */
   .header-actions { gap: 6px; flex-shrink: 0; }
-  .super-admin-btn { padding: 6px 10px; font-size: 0.78rem; gap: 4px; }
+  .super-admin-btn { padding: 6px 10px; font-size: 1rem; gap: 4px; }
   .super-admin-btn span { display: none; } /* Hide text label, keep icon only */
-  .super-admin-btn::before { content: '⚙️'; font-size: 1.1rem; }
 
   /* Budget bar: 2×2 grid then form */
   .budget-bar {
