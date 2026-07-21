@@ -436,6 +436,7 @@ html, body {
   box-sizing: border-box;
 }
 .modal-overlay.active { opacity: 1; pointer-events: auto; }
+#sessionOverrideModal { z-index: 2500 !important; }
 
 .modal-card {
   background: rgba(22, 35, 58, 0.97);
