@@ -211,11 +211,9 @@
           <button class="modal-close" onclick="app.closeModal('superAdminModal')">&times;</button>
         </div>
 
-        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-          <button class="action-btn" id="saTabCompanies" onclick="app.switchSuperAdminTab('companies')">Manage
-            Companies</button>
-          <button class="action-btn secondary" id="saTabLogins" onclick="app.switchSuperAdminTab('logins')">Manage User
-            Logins & Passwords</button>
+        <div class="modal-tabs-header">
+          <button class="action-btn" id="saTabCompanies" onclick="app.switchSuperAdminTab('companies')">Manage Companies</button>
+          <button class="action-btn secondary" id="saTabLogins" onclick="app.switchSuperAdminTab('logins')">Manage User Logins & Passwords</button>
         </div>
 
         <!-- Section 1: Companies Management -->
@@ -288,9 +286,7 @@
           </form>
 
           <h4 style="margin-top:20px; margin-bottom:10px;">Change Password for Any User</h4>
-          <form onsubmit="app.handleChangeUserPasswordSubmit(event)"
-            style="display:flex; gap:10px; align-items:flex-end; background: rgba(15,23,42,0.6); padding:16px; border-radius:var(--radius-md); border:1px solid var(--border-color);"
-            autocomplete="off">
+          <form onsubmit="app.handleChangeUserPasswordSubmit(event)" class="form-responsive-row" autocomplete="off">
             <div class="form-group" style="flex:1; margin-bottom:0;">
               <label class="form-label">Username *</label>
               <input type="text" id="changePassUsername" class="form-input" placeholder="e.g. superadmin" required

@@ -305,15 +305,15 @@ class App {
   renderCompanyList() {
     const listContainer = document.getElementById('companyListContainer');
     listContainer.innerHTML = this.companies.map(c => `
-      <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface-bg); padding:10px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
-        <div style="display:flex; align-items:center; gap:10px;">
+      <div class="company-card-item">
+        <div class="company-card-info" style="display:flex; align-items:center; gap:10px;">
           ${c.logo_data ? `<img src="${c.logo_data}" style="width:32px; height:32px; border-radius:4px; object-fit:cover;">` : '🏢'}
           <div>
-            <div style="font-weight:700; color:white;">${c.name} ${c.id === this.currentCompany?.id ? ' <span class="badge-success card-badge">Active</span>' : ''}</div>
+            <div style="font-weight:700; color:white; word-break:break-word;">${c.name} ${c.id === this.currentCompany?.id ? ' <span class="badge-success card-badge">Active</span>' : ''}</div>
             <div style="font-size:0.8rem; color:var(--text-muted);">GST: ${c.gst_number}</div>
           </div>
         </div>
-        <div style="display:flex; gap:8px;">
+        <div class="card-action-group">
           <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editCompany(${c.id})">Edit</button>
           ${c.id !== this.currentCompany?.id ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.switchCompany(${c.id})">Switch</button>` : ''}
           ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteCompany(${c.id})">Delete</button>` : ''}
@@ -359,16 +359,16 @@ class App {
       const companyLabel = u.company_name || (u.company_id ? `Company #${u.company_id}` : (u.role === 'super_admin' ? 'All Companies' : 'Unassigned'));
 
       return `
-        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface-bg); padding:10px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
-          <div>
-            <div style="font-weight:700; color:white; display:flex; align-items:center; gap:8px;">
+        <div class="user-card-item">
+          <div class="user-card-info">
+            <div style="font-weight:700; color:white; display:flex; align-items:center; gap:8px; flex-wrap:wrap; word-break:break-word;">
               👤 ${u.username} ${roleBadge}
             </div>
             <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
               Assigned Company: <strong style="color:#60a5fa;">${companyLabel}</strong>
             </div>
           </div>
-          <div style="display:flex; gap:8px;">
+          <div class="card-action-group">
             <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.fillResetPassword('${u.username}')">🔑 Reset Pass</button>
             ${(this.isSuperAdmin() && u.username !== 'superadmin') ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteUser(${u.id})">Delete</button>` : ''}
           </div>
