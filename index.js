@@ -2168,7 +2168,7 @@ class App {
     }
 
     if (file) {
-      title.innerText = `Previewing: ${file.file_name}`;
+      title.innerText = `Reading Document: ${file.file_name}`;
       downloadBtn.href = file.file_data || '#';
       downloadBtn.style.display = 'inline-flex';
       let dateDisplay = doc.doc_date;
@@ -2176,18 +2176,81 @@ class App {
 
       metaInfo.innerText = `Type: ${file.file_type || 'Unknown'} | Size: ${(file.file_size / 1024).toFixed(1)} KB | Date: ${dateDisplay}`;
 
-      if (file.file_type && file.file_type.includes('image')) {
-        previewArea.innerHTML = `<img src="${file.file_data}" class="doc-preview-img" alt="Document Preview">`;
-      } else if ((file.file_type && file.file_type.includes('text')) || (file.file_name && file.file_name.endsWith('.txt'))) {
-        const base64Content = file.file_data ? file.file_data.split(',')[1] : '';
-        const textContent = base64Content ? atob(base64Content) : 'No content';
-        previewArea.innerHTML = `<textarea class="doc-text-editor" id="docEditableText">${textContent}</textarea>`;
+      const fileType = (file.file_type || '').toLowerCase();
+      const fileName = (file.file_name || '').toLowerCase();
+      const fileData = file.file_data || '';
+
+      const isPdf = fileType.includes('pdf') || fileName.endsWith('.pdf');
+      const isImage = fileType.includes('image') || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(fileName);
+      const isText = fileType.includes('text') || fileType.includes('json') || fileType.includes('xml') || /\.(txt|csv|json|md|log|js|html|css|xml)$/i.test(fileName);
+      const isWord = fileType.includes('word') || fileType.includes('officedocument') || /\.(doc|docx)$/i.test(fileName);
+
+      if (isPdf) {
+        let pdfSrc = fileData;
+        const blob = this.dataURLtoBlob(fileData);
+        if (blob) {
+          if (this._activeBlobUrl) {
+            URL.revokeObjectURL(this._activeBlobUrl);
+          }
+          this._activeBlobUrl = URL.createObjectURL(blob);
+          pdfSrc = `${this._activeBlobUrl}#toolbar=0&navpanes=0&statusbar=0&view=FitH`;
+        } else if (!pdfSrc.includes('#')) {
+          pdfSrc += '#toolbar=0&navpanes=0&statusbar=0&view=FitH';
+        }
+
+        previewArea.innerHTML = `
+          <div style="width:100%; height:100%; min-height:500px; display:flex; flex-direction:column; position:relative; background:#0f172a; border-radius:var(--radius-md); overflow:hidden;">
+            <iframe src="${pdfSrc}" type="application/pdf" style="width:100%; height:100%; min-height:500px; border:none; flex:1;" title="${file.file_name}"></iframe>
+          </div>
+        `;
+      } else if (isImage) {
+        previewArea.innerHTML = `
+          <div style="width:100%; height:100%; min-height:500px; display:flex; align-items:center; justify-content:center; background:#0f172a; border-radius:var(--radius-md); overflow:auto; padding:20px;">
+            <img src="${fileData}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:var(--radius-sm); box-shadow: 0 10px 30px rgba(0,0,0,0.5);" alt="${file.file_name}">
+          </div>
+        `;
+      } else if (isText) {
+        let textContent = '';
+        try {
+          const base64Content = fileData.includes(',') ? fileData.split(',')[1] : fileData;
+          textContent = decodeURIComponent(escape(atob(base64Content)));
+        } catch (e) {
+          try {
+            textContent = atob(fileData.includes(',') ? fileData.split(',')[1] : fileData);
+          } catch (err) {
+            textContent = 'Unable to decode text content.';
+          }
+        }
+
+        previewArea.innerHTML = `
+          <div style="width:100%; height:100%; min-height:500px; display:flex; flex-direction:column; background:#0f172a; border-radius:var(--radius-md); padding:16px; overflow:hidden;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.1);">
+              <span style="font-size:0.85rem; color:#818cf8; font-weight:600;">📝 Text Reader & Editor Mode</span>
+              <span style="font-size:0.75rem; color:var(--text-muted);">${textContent.split('\n').length} lines</span>
+            </div>
+            <textarea class="doc-text-editor" id="docEditableText" style="width:100%; flex:1; min-height:420px; background:rgba(15,23,42,0.9); color:#34d399; font-family:'Fira Code', 'Consolas', monospace; padding:14px; border-radius:var(--radius-md); border:1px solid var(--border-color); font-size:0.9rem; line-height:1.6; resize:none; outline:none;" placeholder="Document text content...">${this.escapeHtml(textContent)}</textarea>
+          </div>
+        `;
+      } else if (isWord) {
+        previewArea.innerHTML = `
+          <div style="width:100%; height:100%; min-height:500px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0f172a; border-radius:var(--radius-md); padding:30px; text-align:center;">
+            <div style="font-size:4rem; margin-bottom:14px; filter:drop-shadow(0 4px 10px rgba(99,102,241,0.4));">📘</div>
+            <div style="font-weight:800; font-size:1.4rem; color:white;">${file.file_name}</div>
+            <div style="font-size:0.9rem; color:#818cf8; margin-top:6px; font-weight:600;">Microsoft Word Document (.docx / .doc)</div>
+            <div style="max-width:500px; background:rgba(30,41,59,0.8); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px; margin-top:20px; text-align:left;">
+              <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:6px;"><strong>File Size:</strong> ${(file.file_size / 1024).toFixed(1)} KB</div>
+              <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:6px;"><strong>Category:</strong> ${doc.category}</div>
+              <div style="font-size:0.82rem; color:var(--text-muted);"><strong>Logged Date:</strong> ${dateDisplay}</div>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.88rem; margin-top:16px;">Click the button below to download and read the complete document offline or in Office.</p>
+          </div>
+        `;
       } else {
         previewArea.innerHTML = `
-          <div style="text-align:center; padding:20px; color:white;">
-            <div style="font-size:3rem; margin-bottom:10px;">📄</div>
-            <div style="font-weight:700; font-size:1.1rem;">${file.file_name}</div>
-            <p style="color:var(--text-muted); margin-top:6px;">Document Preview Active. Click download below to save or view offline.</p>
+          <div style="width:100%; height:100%; min-height:500px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0f172a; border-radius:var(--radius-md); padding:30px; text-align:center;">
+            <div style="font-size:4rem; margin-bottom:14px;">📄</div>
+            <div style="font-weight:800; font-size:1.3rem; color:white;">${file.file_name}</div>
+            <p style="color:var(--text-muted); margin-top:8px;">Document attached (${file.file_type || 'Unknown format'}). Click download below to save or view offline.</p>
           </div>
         `;
       }
@@ -2200,11 +2263,11 @@ class App {
       metaInfo.innerText = `No files attached to this record | Date: ${dateDisplay}`;
 
       previewArea.innerHTML = `
-        <div style="text-align:center; padding:20px; color:white;">
-          <div style="font-size:3rem; margin-bottom:10px;">📋</div>
-          <div style="font-weight:700; font-size:1.1rem;">Category: ${doc.category}</div>
-          <p style="color:var(--text-muted); margin-top:6px;">Amount: ₹${parseFloat(doc.amount || 0).toLocaleString('en-IN')} | Date: ${dateDisplay}</p>
-          <div style="font-size:0.85rem; color:var(--text-dim); margin-top:8px;">(No file was uploaded for this record)</div>
+        <div style="width:100%; height:100%; min-height:500px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0f172a; border-radius:var(--radius-md); padding:30px; text-align:center;">
+          <div style="font-size:4rem; margin-bottom:14px;">📋</div>
+          <div style="font-weight:800; font-size:1.3rem; color:white;">Category: ${doc.category}</div>
+          <p style="color:var(--text-muted); margin-top:8px;">Amount: ₹${parseFloat(doc.amount || 0).toLocaleString('en-IN')} | Date: ${dateDisplay}</p>
+          <div style="font-size:0.85rem; color:var(--text-dim); margin-top:12px;">(No file attachment uploaded for this record)</div>
         </div>
       `;
     }
@@ -2226,6 +2289,30 @@ class App {
   }
 
   /* Utility Helpers */
+  dataURLtoBlob(dataurl) {
+    try {
+      if (!dataurl || !dataurl.includes(',')) return null;
+      const arr = dataurl.split(',');
+      const mimeMatch = arr[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new Blob([u8arr], { type: mime });
+    } catch (e) {
+      console.error('Error converting Data URL to Blob:', e);
+      return null;
+    }
+  }
+
+  escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+
   readFileAsDataURL(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -2240,6 +2327,10 @@ class App {
   }
 
   closeModal(modalId) {
+    if (modalId === 'docViewerModal' && this._activeBlobUrl) {
+      URL.revokeObjectURL(this._activeBlobUrl);
+      this._activeBlobUrl = null;
+    }
     document.getElementById(modalId)?.classList.remove('active');
   }
 }
