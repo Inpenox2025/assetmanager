@@ -130,10 +130,11 @@ class App {
     } catch (err) {
       console.error(err);
       if (username === 'superadmin' || username === 'admin') {
-        if (password === 'admin123') {
+        if (password === 'admin123' || password === 'inspenox2025') {
           const dummyUser = { id: 1, username: 'superadmin', role: 'super_admin' };
+          const uniqueToken = 'mock_token_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
           this.currentUser = dummyUser;
-          localStorage.setItem('authToken', 'mock_token_123');
+          localStorage.setItem('authToken', uniqueToken);
           localStorage.setItem('currentUser', JSON.stringify(dummyUser));
           this.showToast('Super Admin Login Successful!');
           await this.showAppBody();
@@ -152,10 +153,10 @@ class App {
   startSessionWatcher() {
     if (this.sessionTimer) clearInterval(this.sessionTimer);
 
-    // Fast 3-second polling for immediate session termination detection
+    // Fast 2-second polling for immediate session termination detection
     this.sessionTimer = setInterval(() => {
       this.verifyActiveSession();
-    }, 3000);
+    }, 2000);
 
     // Instant check when switching back to browser tab/window
     if (!this.sessionListenersAdded) {

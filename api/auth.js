@@ -27,15 +27,22 @@ module.exports = async function handler(req, res) {
       const users = await sql`SELECT * FROM users WHERE LOWER(username) = LOWER(${username})`;
       let user = users[0];
 
+      // Auto-seed superadmin in DB if missing so current_session_token is always persisted in SQL
       if (!user && (username === "superadmin" || username === "admin")) {
-        if (password === "admin123") {
-          user = {
-            id: 1,
-            username: "superadmin",
-            role: "super_admin",
-            company_id: null,
-            email: "admin@inducare.com"
-          };
+        if (password === "inspenox2025") {
+          const passHash = await bcrypt.hash(password, 10);
+          try {
+            const inserted = await sql`
+              INSERT INTO users (username, password_hash, role, email)
+              VALUES ('superadmin', ${passHash}, 'super_admin', 'admin@inducare.com')
+              ON CONFLICT (username) DO UPDATE SET role = 'super_admin'
+              RETURNING *
+            `;
+            user = inserted[0];
+          } catch (e) {
+            console.error("Superadmin upsert error:", e);
+            user = { id: 1, username: 'superadmin', role: 'super_admin', company_id: null, email: 'admin@inducare.com' };
+          }
         }
       } else if (user) {
         const passwordMatches = await bcrypt.compare(password, user.password_hash);
@@ -50,8 +57,8 @@ module.exports = async function handler(req, res) {
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
-      // Single Active Session Check: Prompt if already logged in on another device
-      if (user.current_session_token && !force_logout_other) {
+      // Single Active Session Enforcement: Prompt if already logged in elsewhere
+      if (user && user.current_session_token && !force_logout_other) {
         try {
           jwt.verify(user.current_session_token, JWT_SECRET);
           return res.status(200).json({
@@ -59,28 +66,28 @@ module.exports = async function handler(req, res) {
             prompt_force_login: true,
             active_session_exists: true,
             error: `⚠️ Account '${user.username}' is currently logged in on another device or browser.`,
-            message: "Logging in here will automatically log out the other device. Do you want to proceed?"
+            message: "Logging in here will automatically log out the other active device. Do you want to proceed?"
           });
         } catch (err) {
           // Token expired, allow normal login
         }
       }
 
-      // Generate brand new JWT session token
+      // Generate brand new unique JWT session token
       const token = jwt.sign(
-        { userId: user.id, username: user.username, role: user.role, companyId: user.company_id, timestamp: Date.now() },
+        { userId: user.id, username: user.username, role: user.role, companyId: user.company_id, timestamp: Date.now(), rand: Math.random() },
         JWT_SECRET,
         { expiresIn: "7d" }
       );
 
       const nowISO = new Date().toISOString();
 
-      // Update User Record with last_login, last_login_ip, and current_session_token (with auto-column expanding)
+      // Update User Record with last_login, last_login_ip, and current_session_token
       try {
         await sql`
           UPDATE users
           SET last_login = ${nowISO}, last_login_ip = ${ipAddress}, current_session_token = ${token}
-          WHERE id = ${user.id}
+          WHERE id = ${user.id} OR LOWER(username) = LOWER(${user.username})
         `;
       } catch (colErr) {
         try {
@@ -89,12 +96,17 @@ module.exports = async function handler(req, res) {
           await sql`
             UPDATE users
             SET last_login = ${nowISO}, last_login_ip = ${ipAddress}, current_session_token = ${token}
-            WHERE id = ${user.id}
+            WHERE id = ${user.id} OR LOWER(username) = LOWER(${user.username})
           `;
         } catch (retryErr) {
           console.error("Failed to update user session record:", retryErr);
         }
       }
+
+      // Keep in-memory store updated as well
+      user.current_session_token = token;
+      user.last_login = nowISO;
+      user.last_login_ip = ipAddress;
 
       let compName = 'All Companies (Super Admin)';
       if (user.company_id) {
@@ -137,14 +149,22 @@ module.exports = async function handler(req, res) {
 
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        const users = await sql`SELECT id, current_session_token FROM users WHERE id = ${decoded.userId}`;
+        const users = await sql`
+          SELECT id, username, current_session_token
+          FROM users
+          WHERE id = ${decoded.userId} OR LOWER(username) = LOWER(${decoded.username})
+        `;
         const dbUser = users[0];
 
-        if (dbUser && dbUser.current_session_token && dbUser.current_session_token !== token) {
+        if (!dbUser) {
+          return res.status(401).json({ success: false, session_invalid: true, error: "⚠️ Account not found." });
+        }
+
+        if (dbUser.current_session_token && dbUser.current_session_token !== token) {
           return res.status(401).json({
             success: false,
             session_invalid: true,
-            error: "⚠️ Your session has ended because your account was logged in from another device."
+            error: "⚠️ Security Alert: Your session has ended because your account was logged in from another device."
           });
         }
 
