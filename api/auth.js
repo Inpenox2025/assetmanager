@@ -14,9 +14,12 @@ module.exports = async function handler(req, res) {
   const action = req.query.action || (req.body && req.body.action) || "login";
 
   try {
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || 'Unknown Browser';
+
     // 1. LOGIN ACTION
     if (action === "login" && req.method === "POST") {
-      const { username, password } = req.body || {};
+      const { username, password, force_logout_other } = req.body || {};
       if (!username || !password) {
         return res.status(400).json({ error: "Username and Password are required" });
       }
@@ -30,39 +33,125 @@ module.exports = async function handler(req, res) {
             id: 1,
             username: "superadmin",
             role: "super_admin",
+            company_id: null,
             email: "admin@inducare.com"
           };
         }
       } else if (user) {
         const passwordMatches = await bcrypt.compare(password, user.password_hash);
         if (!passwordMatches) {
+          await sql`
+            INSERT INTO login_activities (user_id, username, role, company_name, ip_address, user_agent, status)
+            VALUES (${user.id || 0}, ${username}, ${user.role || 'unknown'}, 'N/A', ${ipAddress}, ${userAgent}, 'FAILED')
+          `;
           return res.status(401).json({ error: "Invalid username or password" });
         }
       } else {
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
+      // Single Active Session Check: Prompt if already logged in on another device
+      if (user.current_session_token && !force_logout_other) {
+        try {
+          jwt.verify(user.current_session_token, JWT_SECRET);
+          return res.status(200).json({
+            success: false,
+            prompt_force_login: true,
+            active_session_exists: true,
+            error: `⚠️ Account '${user.username}' is currently logged in on another device or browser.`,
+            message: "Logging in here will automatically log out the other device. Do you want to proceed?"
+          });
+        } catch (err) {
+          // Token expired, allow normal login
+        }
+      }
+
+      // Generate brand new JWT session token
       const token = jwt.sign(
-        { userId: user.id, username: user.username, role: user.role, companyId: user.company_id },
+        { userId: user.id, username: user.username, role: user.role, companyId: user.company_id, timestamp: Date.now() },
         JWT_SECRET,
         { expiresIn: "7d" }
       );
 
+      const nowISO = new Date().toISOString();
+
+      // Update User Record with last_login, last_login_ip, and current_session_token
+      await sql`
+        UPDATE users
+        SET last_login = ${nowISO}, last_login_ip = ${ipAddress}, current_session_token = ${token}
+        WHERE id = ${user.id}
+      `;
+
+      let compName = 'All Companies (Super Admin)';
+      if (user.company_id) {
+        const comps = await sql`SELECT name FROM companies WHERE id = ${user.company_id}`;
+        if (comps && comps[0]) compName = comps[0].name;
+      }
+
+      const statusLabel = force_logout_other ? 'SESSION_OVERRIDDEN' : 'SUCCESS';
+
+      // Insert Activity Log Record
+      await sql`
+        INSERT INTO login_activities (user_id, username, role, company_name, ip_address, user_agent, status)
+        VALUES (${user.id}, ${user.username}, ${user.role}, ${compName}, ${ipAddress}, ${userAgent}, ${statusLabel})
+      `;
+
       return res.status(200).json({
         success: true,
-        message: "Login successful!",
+        message: force_logout_other ? "Logged in successfully! Previous device session terminated." : "Login successful!",
         token,
         user: {
           id: user.id,
           username: user.username,
           role: user.role,
           company_id: user.company_id,
-          email: user.email
+          email: user.email,
+          last_login: nowISO,
+          last_login_ip: ipAddress
         }
       });
     }
 
-    // 2. CREATE USER CREDENTIALS (SUPER ADMIN ONLY)
+    // 2. VERIFY ACTIVE SESSION TOKEN
+    if (action === "verify-session") {
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : (req.query.token || (req.body && req.body.token));
+
+      if (!token) {
+        return res.status(401).json({ error: "No token provided", session_invalid: true });
+      }
+
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const users = await sql`SELECT id, current_session_token FROM users WHERE id = ${decoded.userId}`;
+        const dbUser = users[0];
+
+        if (dbUser && dbUser.current_session_token && dbUser.current_session_token !== token) {
+          return res.status(401).json({
+            success: false,
+            session_invalid: true,
+            error: "⚠️ Your session has ended because your account was logged in from another device."
+          });
+        }
+
+        return res.status(200).json({ success: true, user: decoded });
+      } catch (err) {
+        return res.status(401).json({ success: false, session_invalid: true, error: "Invalid or expired session token" });
+      }
+    }
+
+    // 3. GET LOGIN ACTIVITIES LOGS (SUPER ADMIN ONLY)
+    if (action === "get-login-activities") {
+      const activities = await sql`
+        SELECT id, user_id, username, role, company_name, ip_address, user_agent, status, login_time
+        FROM login_activities
+        ORDER BY id DESC
+        LIMIT 100
+      `;
+      return res.status(200).json({ success: true, activities });
+    }
+
+    // 4. CREATE USER CREDENTIALS (SUPER ADMIN ONLY)
     if (action === "create-user" && req.method === "POST") {
       const { username, password, role, company_id, email } = req.body || {};
       if (!username || !password) {
@@ -84,7 +173,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 3. CHANGE USER PASSWORD (SUPER ADMIN ONLY)
+    // 5. CHANGE USER PASSWORD (SUPER ADMIN ONLY)
     if (action === "change-user-password" && req.method === "POST") {
       const { username, newPassword } = req.body || {};
       if (!username || !newPassword) {
@@ -104,10 +193,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 4. GET USERS LIST (SUPER ADMIN ONLY)
+    // 6. GET USERS LIST (SUPER ADMIN ONLY)
     if (action === "get-users") {
       const users = await sql`
-        SELECT u.id, u.username, u.role, u.company_id, u.email, u.created_at, c.name as company_name
+        SELECT u.id, u.username, u.role, u.company_id, u.email, u.last_login, u.last_login_ip, u.created_at, c.name as company_name
         FROM users u
         LEFT JOIN companies c ON u.company_id = c.id
         ORDER BY u.id DESC
@@ -115,7 +204,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ success: true, users });
     }
 
-    // 5. DELETE USER (SUPER ADMIN ONLY)
+    // 7. DELETE USER (SUPER ADMIN ONLY)
     if (action === "delete-user") {
       const id = req.query.id || (req.body && req.body.id);
       if (!id) return res.status(400).json({ error: "User ID is required" });

@@ -14,6 +14,8 @@ A comprehensive, enterprise-grade web application built for multi-company asset 
 - **Daily Maintenance Budget Engine**: Real-time tracking of daily maintenance allocations with **automatic unspent balance carry-over** to subsequent days.
 - **Vehicle Service Alerts**: Fleet monitoring that automatically flags vehicles requiring service upon reaching the **10,000 KM threshold**.
 - **Document Vault & Inline Reader**: Multi-file attachment engine supporting PDF, PNG/JPEG, DOCX, and TXT documents. Features an **expanded viewport modal (1120px)** with an **embedded clean PDF reader** (with print/toolbar controls hidden for focused reading) and interactive multi-tab switcher.
+- **Single Active Session Security**: Prevents simultaneous logins across multiple devices. When an account logs in from a new browser or device, the user is prompted to terminate the active session; logging in invalidates the previous token and forces the other device to log out.
+- **Login Activity Tracking & Security Audit Logs**: Complete audit log recording username, role, assigned company, IP address, browser user-agent, login status (`SUCCESS`, `SESSION_OVERRIDDEN`, `FAILED`), and exact login timestamps.
 - **Dual Database Architecture**: Seamlessly runs with **Vercel PostgreSQL (Neon DB)** in production or an **In-Memory Mock Database Store** for instant offline local development.
 
 ---

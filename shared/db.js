@@ -3,7 +3,7 @@ const { neon } = require('@neondatabase/serverless');
 // In-memory mock database store when DATABASE_URL is not set for local offline dev
 const memoryStore = {
   users: [
-    { id: 1, username: 'superadmin', password_hash: '$2a$10$abcdefghijklmnopqrstuu', role: 'super_admin', email: 'admin@inducare.com', company_id: null }
+    { id: 1, username: 'superadmin', password_hash: '$2a$10$abcdefghijklmnopqrstuu', role: 'super_admin', email: 'admin@inducare.com', company_id: null, last_login: null, last_login_ip: null, current_session_token: null }
   ],
   companies: [
     { id: 1, name: 'Acme Corporation', gst_number: '29ABCDE1234F1Z5', logo_data: '', created_at: new Date().toISOString() },
@@ -15,7 +15,8 @@ const memoryStore = {
   employees: [],
   salary_payments: [],
   vehicles: [],
-  vehicle_service_logs: []
+  vehicle_service_logs: [],
+  login_activities: []
 };
 
 let compIdCounter = 3;
@@ -26,6 +27,7 @@ let vehIdCounter = 1;
 let budgetIdCounter = 1;
 let serviceIdCounter = 1;
 let userIdCounter = 2;
+let activityIdCounter = 1;
 
 function getMemorySQL() {
   return async function sql(strings, ...values) {
@@ -37,12 +39,46 @@ function getMemorySQL() {
       return [];
     }
 
+    // LOGIN ACTIVITIES
+    if (query.includes('login_activities')) {
+      if (upperQuery.startsWith('SELECT')) {
+        return [...(memoryStore.login_activities || [])].sort((a,b) => b.id - a.id);
+      }
+      if (upperQuery.startsWith('INSERT INTO LOGIN_ACTIVITIES')) {
+        const userId = values[0];
+        const username = values[1];
+        const role = values[2];
+        const companyName = values[3];
+        const ipAddress = values[4];
+        const userAgent = values[5];
+        const status = values[6];
+
+        const record = {
+          id: activityIdCounter++,
+          user_id: userId,
+          username,
+          role,
+          company_name: companyName,
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          status,
+          login_time: new Date().toISOString()
+        };
+        memoryStore.login_activities.push(record);
+        return [record];
+      }
+    }
+
     // USERS
     if (query.includes('users') || query.includes('USERS')) {
       if (upperQuery.startsWith('SELECT')) {
         if (query.includes('WHERE LOWER(username) =')) {
           const uname = (values[0] || '').toLowerCase();
           return memoryStore.users.filter(u => u.username.toLowerCase() === uname);
+        }
+        if (query.includes('WHERE id =')) {
+          const id = parseInt(values[0]);
+          return memoryStore.users.filter(u => u.id === id);
         }
         return memoryStore.users.map(u => {
           const comp = memoryStore.companies.find(c => c.id === u.company_id);
@@ -68,12 +104,26 @@ function getMemorySQL() {
         return [existing];
       }
       if (upperQuery.startsWith('UPDATE USERS')) {
-        const passHash = values[0];
-        const uname = (values[1] || '').toLowerCase();
-        const user = memoryStore.users.find(u => u.username.toLowerCase() === uname);
-        if (user) {
-          user.password_hash = passHash;
-          return [user];
+        if (upperQuery.includes('CURRENT_SESSION_TOKEN')) {
+          const lastLogin = values[0];
+          const lastIp = values[1];
+          const sessionToken = values[2];
+          const userId = parseInt(values[3]);
+          const user = memoryStore.users.find(u => u.id === userId);
+          if (user) {
+            user.last_login = lastLogin;
+            user.last_login_ip = lastIp;
+            user.current_session_token = sessionToken;
+            return [user];
+          }
+        } else {
+          const passHash = values[0];
+          const uname = (values[1] || '').toLowerCase();
+          const user = memoryStore.users.find(u => u.username.toLowerCase() === uname);
+          if (user) {
+            user.password_hash = passHash;
+            return [user];
+          }
         }
         return [];
       }

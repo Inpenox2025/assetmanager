@@ -19,7 +19,30 @@ module.exports = async function handler(req, res) {
         role VARCHAR(50) NOT NULL DEFAULT 'company_admin', -- 'super_admin', 'company_admin'
         company_id INT,
         email VARCHAR(255),
+        last_login TIMESTAMP,
+        last_login_ip VARCHAR(100),
+        current_session_token VARCHAR(255),
         created_at TIMESTAMP DEFAULT NOW()
+      )
+    `;
+
+    // Safely add missing columns to existing users table
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(100)`;
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS current_session_token VARCHAR(255)`;
+
+    // 0.1 Login Activities Tracking Table
+    await sql`
+      CREATE TABLE IF NOT EXISTS login_activities (
+        id SERIAL PRIMARY KEY,
+        user_id INT,
+        username VARCHAR(100) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        company_name VARCHAR(255),
+        ip_address VARCHAR(100),
+        user_agent TEXT,
+        status VARCHAR(50) NOT NULL,
+        login_time TIMESTAMP DEFAULT NOW()
       )
     `;
 

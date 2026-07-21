@@ -73,26 +73,57 @@ class App {
     await this.loadCompanies();
   }
 
-  async handleLoginSubmit(e) {
-    e.preventDefault();
-    const username = document.getElementById('loginUsername').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    const role = document.getElementById('loginRole').value;
+  async handleLoginSubmit(e, forceLogoutOther = false) {
+    if (e && e.preventDefault) e.preventDefault();
+    let username = '';
+    let password = '';
+    let role = 'super_admin';
+
+    if (forceLogoutOther && this.pendingForceLoginDetails) {
+      username = this.pendingForceLoginDetails.username;
+      password = this.pendingForceLoginDetails.password;
+      role = this.pendingForceLoginDetails.role || 'super_admin';
+    } else {
+      const uEl = document.getElementById('loginUsername');
+      const pEl = document.getElementById('loginPassword');
+      const rEl = document.getElementById('loginRole');
+      if (uEl) username = uEl.value.trim();
+      if (pEl) password = pEl.value;
+      if (rEl) role = rEl.value;
+    }
+
+    if (!username || !password) {
+      alert('Please enter username and password.');
+      return;
+    }
 
     try {
       const res = await fetch('/api/auth?action=login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, role })
+        body: JSON.stringify({ username, password, role, force_logout_other: forceLogoutOther })
       });
       const data = await res.json();
 
+      if (data.prompt_force_login) {
+        this.pendingForceLoginDetails = { username, password, role };
+        const msgEl = document.getElementById('sessionOverrideMessage');
+        if (msgEl) {
+          msgEl.innerHTML = `Account <strong style="color:#60a5fa;">${this.escapeHtml(username)}</strong> is currently logged in on another device or browser session.<br><br>Logging in here will log out the other active device immediately.`;
+        }
+        this.openModal('sessionOverrideModal');
+        return;
+      }
+
       if (data.success) {
+        this.closeModal('sessionOverrideModal');
+        this.pendingForceLoginDetails = null;
         this.currentUser = data.user;
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('currentUser', JSON.stringify(data.user));
-        this.showToast(`Welcome back, ${data.user.username}!`);
+        this.showToast(data.message || `Welcome back, ${data.user.username}!`);
         await this.showAppBody();
+        this.startSessionWatcher();
       } else {
         alert(data.error || 'Invalid credentials');
       }
@@ -106,10 +137,40 @@ class App {
           localStorage.setItem('currentUser', JSON.stringify(dummyUser));
           this.showToast('Super Admin Login Successful!');
           await this.showAppBody();
+          this.startSessionWatcher();
           return;
         }
       }
       alert('Invalid username or password.');
+    }
+  }
+
+  async confirmForceLogin() {
+    await this.handleLoginSubmit(null, true);
+  }
+
+  startSessionWatcher() {
+    if (this.sessionTimer) clearInterval(this.sessionTimer);
+    this.sessionTimer = setInterval(() => {
+      this.verifyActiveSession();
+    }, 15000); // Check session token every 15s
+  }
+
+  async verifyActiveSession() {
+    const token = localStorage.getItem('authToken');
+    if (!token || !this.currentUser) return;
+    try {
+      const res = await fetch('/api/auth?action=verify-session', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.session_invalid) {
+        if (this.sessionTimer) clearInterval(this.sessionTimer);
+        this.logout();
+        alert('⚠️ Security Alert: Your session has ended because your account was logged in from another device.');
+      }
+    } catch (e) {
+      console.error('Session verify check failed:', e);
     }
   }
 
@@ -284,21 +345,79 @@ class App {
   async switchSuperAdminTab(tab) {
     const secComp = document.getElementById('saSectionCompanies');
     const secLogins = document.getElementById('saSectionLogins');
+    const secActivities = document.getElementById('saSectionActivities');
     const btnComp = document.getElementById('saTabCompanies');
     const btnLogins = document.getElementById('saTabLogins');
+    const btnActivities = document.getElementById('saTabActivities');
 
     if (tab === 'companies') {
-      secComp.style.display = 'block';
-      secLogins.style.display = 'none';
-      btnComp.className = 'action-btn';
-      btnLogins.className = 'action-btn secondary';
-    } else {
-      secComp.style.display = 'none';
-      secLogins.style.display = 'block';
-      btnLogins.className = 'action-btn';
-      btnComp.className = 'action-btn secondary';
+      if (secComp) secComp.style.display = 'block';
+      if (secLogins) secLogins.style.display = 'none';
+      if (secActivities) secActivities.style.display = 'none';
+      if (btnComp) btnComp.className = 'action-btn';
+      if (btnLogins) btnLogins.className = 'action-btn secondary';
+      if (btnActivities) btnActivities.className = 'action-btn secondary';
+    } else if (tab === 'logins') {
+      if (secComp) secComp.style.display = 'none';
+      if (secLogins) secLogins.style.display = 'block';
+      if (secActivities) secActivities.style.display = 'none';
+      if (btnComp) btnComp.className = 'action-btn secondary';
+      if (btnLogins) btnLogins.className = 'action-btn';
+      if (btnActivities) btnActivities.className = 'action-btn secondary';
       this.clearCreateUserInputs();
       await this.loadRegisteredUsers();
+    } else if (tab === 'activities') {
+      if (secComp) secComp.style.display = 'none';
+      if (secLogins) secLogins.style.display = 'none';
+      if (secActivities) secActivities.style.display = 'block';
+      if (btnComp) btnComp.className = 'action-btn secondary';
+      if (btnLogins) btnLogins.className = 'action-btn secondary';
+      if (btnActivities) btnActivities.className = 'action-btn';
+      await this.loadLoginActivities();
+    }
+  }
+
+  async loadLoginActivities() {
+    const tbody = document.getElementById('loginActivitiesTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">Loading login audit logs...</td></tr>`;
+
+    try {
+      const res = await fetch('/api/auth?action=get-login-activities');
+      const data = await res.json();
+      if (data.success && data.activities && data.activities.length > 0) {
+        tbody.innerHTML = data.activities.map(a => {
+          const badgeClass = a.status === 'SUCCESS' ? 'badge-success' :
+                             a.status === 'SESSION_OVERRIDDEN' ? 'badge-warning' : 'badge-danger';
+          const statusLabel = a.status === 'SESSION_OVERRIDDEN' ? 'Session Overridden' : a.status;
+          let dtStr = a.login_time || 'Just now';
+          if (dtStr.includes('T')) {
+            const parts = dtStr.split('T');
+            dtStr = `${parts[0]} ${parts[1].substring(0, 5)}`;
+          }
+
+          return `
+            <tr>
+              <td>
+                <strong>👤 ${this.escapeHtml(a.username)}</strong>
+                <div style="font-size:0.75rem; color:var(--text-muted);">${a.role}</div>
+              </td>
+              <td>${this.escapeHtml(a.company_name || 'N/A')}</td>
+              <td>
+                <code>${this.escapeHtml(a.ip_address || '127.0.0.1')}</code>
+                <div style="font-size:0.72rem; color:var(--text-muted); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${this.escapeHtml(a.user_agent || '')}">${this.escapeHtml(a.user_agent || 'Browser')}</div>
+              </td>
+              <td><span class="card-badge ${badgeClass}">${statusLabel}</span></td>
+              <td style="color:var(--text-muted);">${dtStr}</td>
+            </tr>
+          `;
+        }).join('');
+      } else {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">No login activities recorded yet.</td></tr>`;
+      }
+    } catch (e) {
+      console.error('Failed to load login activities:', e);
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#f87171; padding:20px;">Failed to load audit logs.</td></tr>`;
     }
   }
 
@@ -358,6 +477,13 @@ class App {
 
       const companyLabel = u.company_name || (u.company_id ? `Company #${u.company_id}` : (u.role === 'super_admin' ? 'All Companies' : 'Unassigned'));
 
+      let lastLoginText = 'Never Logged In';
+      if (u.last_login) {
+        let dt = u.last_login;
+        if (dt.includes('T')) dt = dt.split('T')[0] + ' ' + dt.split('T')[1].substring(0, 5);
+        lastLoginText = `${dt} (${u.last_login_ip || '127.0.0.1'})`;
+      }
+
       return `
         <div class="user-card-item">
           <div class="user-card-info">
@@ -366,6 +492,9 @@ class App {
             </div>
             <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
               Assigned Company: <strong style="color:#60a5fa;">${companyLabel}</strong>
+            </div>
+            <div style="font-size:0.76rem; color:#94a3b8; margin-top:3px;">
+              🕒 Last Login: <span style="color:#fbbf24;">${lastLoginText}</span>
             </div>
           </div>
           <div class="card-action-group">

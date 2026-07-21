@@ -54,14 +54,14 @@
           style="width: 100%; justify-content: center; padding: 12px; font-size: 1rem; margin-top: 6px;">
           🚀 Login to Portal
         </button>
-<!-- 
+
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.82rem;">
-          <span style="color: var(--text-muted);">Super Admin: <code style="color:#34d399;">superadmin</code> / <code
-              style="color:#34d399;">admin123</code></span>
+          <!-- <span style="color: var(--text-muted);">Super Admin: <code style="color:#34d399;">superadmin</code> / <code
+              style="color:#34d399;">admin123</code></span> -->
           <button type="button" onclick="app.initializeDatabase()"
             style="background: none; border: none; color: #818cf8; text-decoration: underline; cursor: pointer; font-weight: 600;">⚡
             Initialize DB & Tables</button>
-        </div> -->
+        </div>
 
       </form>
     </div>
@@ -214,6 +214,7 @@
         <div class="modal-tabs-header">
           <button class="action-btn" id="saTabCompanies" onclick="app.switchSuperAdminTab('companies')">Manage Companies</button>
           <button class="action-btn secondary" id="saTabLogins" onclick="app.switchSuperAdminTab('logins')">Manage User Logins & Passwords</button>
+          <button class="action-btn secondary" id="saTabActivities" onclick="app.switchSuperAdminTab('activities')">📜 Login Activity Logs</button>
         </div>
 
         <!-- Section 1: Companies Management -->
@@ -308,6 +309,55 @@
           <h4 style="margin-top:20px; margin-bottom:10px;">Registered User Logins & Appointed Admins</h4>
           <div id="userLoginsListContainer" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
+
+        <!-- Section 3: Login Activity & Security Audit Logs -->
+        <div id="saSectionActivities" style="display: none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h4 style="margin:0;">Recent Login Activities & Security Audit Logs</h4>
+            <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.loadLoginActivities()">🔄 Refresh Logs</button>
+          </div>
+          <div class="table-container" style="max-height:400px; overflow-y:auto;">
+            <table class="custom-table" style="font-size:0.82rem;">
+              <thead>
+                <tr>
+                  <th>User / Role</th>
+                  <th>Company</th>
+                  <th>IP & Device</th>
+                  <th>Status</th>
+                  <th>Login Time</th>
+                </tr>
+              </thead>
+              <tbody id="loginActivitiesTableBody">
+                <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">Click tab or Refresh Logs to view audit entries.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Active Session Override Confirmation Modal -->
+    <div class="modal-overlay" id="sessionOverrideModal">
+      <div class="modal-card" style="max-width:500px;">
+        <div class="modal-header">
+          <h3 class="modal-title" style="color:#fbbf24;">⚠️ Active Session Detected</h3>
+          <button class="modal-close" onclick="app.closeModal('sessionOverrideModal')">&times;</button>
+        </div>
+        <div style="padding:8px 0;">
+          <p style="color:white; font-size:0.95rem; line-height:1.5;" id="sessionOverrideMessage">
+            Account is currently active on another device or browser session.
+          </p>
+          <div style="background:rgba(234,179,8,0.1); border:1px solid rgba(234,179,8,0.3); border-radius:var(--radius-md); padding:12px; margin-top:12px; font-size:0.85rem; color:#fef08a;">
+            🔒 <strong>Security Enforcement:</strong> Logging in here will invalidate the active session and log out the other device immediately.
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+          <button type="button" class="action-btn secondary" onclick="app.closeModal('sessionOverrideModal')">Cancel</button>
+          <button type="button" class="action-btn" style="background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="app.confirmForceLogin()">🚀 Logout Other Device & Login Here</button>
+        </div>
+      </div>
+    </div>
 
       </div>
     </div>
