@@ -467,15 +467,15 @@
     <div class="modal-overlay" id="docViewerModal">
       <div class="modal-card doc-viewer-modal">
         <div class="modal-header">
-          <h3 class="modal-title" id="viewerModalTitle">Document Preview & Editor</h3>
-          <button class="modal-close" onclick="app.closeModal('docViewerModal')">&times;</button>
+          <h3 class="modal-title" id="viewerModalTitle">📄 Document Reader</h3>
+          <button class="modal-close" onclick="app.closeModal('docViewerModal')" title="Close">&times;</button>
         </div>
         <!-- Multi-File Switcher Tab Strip -->
-        <div id="docFileTabs" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;"></div>
+        <div id="docFileTabs" class="doc-file-tabs-strip"></div>
         <div class="doc-preview-area" id="docPreviewArea"></div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
-          <span id="docMetaInfo" style="color:var(--text-muted); font-size:0.85rem;"></span>
-          <div style="display:flex; gap:10px;">
+        <div class="doc-viewer-footer">
+          <span id="docMetaInfo" style="color:var(--text-muted); font-size:0.85rem; word-break:break-word;"></span>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;" class="footer-btn-group">
             <a id="docDownloadBtn" download class="action-btn secondary" href="#">Download File</a>
             <button type="button" class="action-btn" onclick="app.saveDocEdit()">Save Changes</button>
           </div>

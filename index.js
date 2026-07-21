@@ -2218,7 +2218,7 @@ class App {
     }
 
     if (file) {
-      title.innerText = `Reading Document: ${file.file_name}`;
+      title.innerText = `📄 Document Reader — ${doc.category || 'Vault File'}`;
       downloadBtn.href = file.file_data || '#';
       downloadBtn.style.display = 'inline-flex';
       let dateDisplay = doc.doc_date;

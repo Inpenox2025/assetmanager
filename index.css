@@ -572,7 +572,26 @@ html, body {
   display: flex !important;
   flex-direction: column !important;
   padding: 20px 24px !important;
-  gap: 12px !important;
+  gap: 10px !important;
+}
+
+.doc-file-tabs-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  width: 100%;
+}
+
+.doc-viewer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .doc-preview-area {
@@ -805,27 +824,40 @@ html, body {
 
   /* Modal fills screen with safe bottom clearance for Samsung Internet & Mobile Browsers */
   .modal-overlay {
-    padding: 10px 10px calc(85px + env(safe-area-inset-bottom, 24px)) 10px !important;
-    align-items: flex-end !important;
+    padding: calc(20px + env(safe-area-inset-top, 10px)) 10px calc(75px + env(safe-area-inset-bottom, 20px)) 10px !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
   .modal-card {
-    padding: 18px 16px calc(42px + env(safe-area-inset-bottom, 20px)) 16px !important;
+    margin: auto !important;
+    padding: 18px 16px calc(30px + env(safe-area-inset-bottom, 16px)) 16px !important;
     border-radius: var(--radius-xl) !important;
-    max-height: calc(84dvh - env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(80dvh - env(safe-area-inset-bottom, 0px)) !important;
     max-width: 100% !important;
     width: 100% !important;
-    margin-bottom: calc(10px + env(safe-area-inset-bottom, 10px)) !important;
     box-shadow: 0 10px 40px rgba(0,0,0,0.8);
     box-sizing: border-box !important;
   }
   .doc-viewer-modal {
     width: 100% !important;
     height: auto !important;
-    max-height: calc(85dvh - env(safe-area-inset-bottom, 0px)) !important;
-    padding: 16px 14px calc(42px + env(safe-area-inset-bottom, 20px)) 14px !important;
+    max-height: calc(82dvh - env(safe-area-inset-bottom, 0px)) !important;
+    padding: 16px 14px calc(30px + env(safe-area-inset-bottom, 16px)) 14px !important;
   }
   .doc-preview-area {
-    min-height: 320px !important;
+    min-height: 280px !important;
+  }
+  .doc-viewer-footer {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .doc-viewer-footer .footer-btn-group,
+  .doc-viewer-footer .action-btn,
+  .doc-viewer-footer a {
+    width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
   }
   .modal-tabs-header {
     flex-direction: column !important;
