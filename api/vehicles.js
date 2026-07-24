@@ -66,23 +66,32 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // Action: Update Current Odometer KMs
+      // Action: Update Current Odometer KMs (Accumulates added reading or sets new total)
       if (action === "update_kms") {
         if (!id || total_kms_driven === undefined) {
-          return res.status(400).json({ error: "Vehicle ID and odometer KMs reading are required" });
+          return res.status(400).json({ error: "Vehicle ID and KMs reading are required" });
         }
 
-        const newKms = parseInt(total_kms_driven) || 0;
+        const vehs = await sql`SELECT total_kms_driven FROM vehicles WHERE id = ${id}`;
+        if (!vehs.length) return res.status(404).json({ error: "Vehicle not found" });
+
+        const prevKms = parseInt(vehs[0].total_kms_driven || 0);
+        const inputKms = parseInt(total_kms_driven) || 0;
+
+        let newTotalKms = prevKms + inputKms;
+        if (inputKms >= prevKms + inputKms) {
+          newTotalKms = inputKms;
+        }
 
         await sql`
           UPDATE vehicles
-          SET total_kms_driven = ${newKms}
+          SET total_kms_driven = ${newTotalKms}
           WHERE id = ${id}
         `;
 
         return res.status(200).json({
           success: true,
-          message: `Odometer reading updated to ${newKms.toLocaleString()} KM!`
+          message: `Odometer updated! Total KMs driven: ${newTotalKms.toLocaleString()} KM.`
         });
       }
 
@@ -114,11 +123,14 @@ module.exports = async function handler(req, res) {
       const tStatus = tax_paid_status || "Not Paid";
       const sDate = service_date || new Date().toISOString().split("T")[0];
 
+      // kms_at_last_service initialized to 0 so created KMs count towards 10,000 KM threshold
       const newVeh = await sql`
         INSERT INTO vehicles (company_id, vehicle_name, rc_number, total_kms_driven, kms_at_last_service, tax_paid_status, tax_amount, description, last_service_date)
-        VALUES (${companyId}, ${vehicle_name}, ${rc_number}, ${kms}, ${kms}, ${tStatus}, ${tAmt}, ${description || ''}, ${sDate})
+        VALUES (${companyId}, ${vehicle_name}, ${rc_number}, ${kms}, 0, ${tStatus}, ${tAmt}, ${description || ''}, ${sDate})
         RETURNING *
       `;
+
+      return res.status(201).json({ success: true, vehicle: newVeh[0] });
 
       return res.status(201).json({ success: true, vehicle: newVeh[0] });
     }

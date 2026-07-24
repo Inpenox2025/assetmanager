@@ -2099,8 +2099,9 @@ class App {
     const lastServiceKms = parseInt(veh.kms_at_last_service || 0);
     const driven = Math.max(0, totalKms - lastServiceKms);
     document.getElementById('vehKmsVehId').value = vehId;
-    document.getElementById('vehKmsVehName').value = `${veh.vehicle_name} (${veh.rc_number}) — Odometer: ${totalKms.toLocaleString()} KM (${driven.toLocaleString()} KM driven since baseline)`;
-    document.getElementById('vehKmsInput').value = totalKms;
+    document.getElementById('vehKmsVehName').value = `${veh.vehicle_name} (${veh.rc_number}) — Current Total: ${totalKms.toLocaleString()} KM (${driven.toLocaleString()} KM driven since baseline)`;
+    document.getElementById('vehKmsInput').value = '';
+    document.getElementById('vehKmsInput').placeholder = 'e.g. 9000';
     this.openModal('vehicleKmsModal');
   }
 
