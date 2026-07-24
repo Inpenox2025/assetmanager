@@ -2540,6 +2540,8 @@ class App {
     document.getElementById('docFileInput').value = '';
     this.renderSelectedFilesList();
 
+    const amountLabel = document.getElementById('docAmountLabel');
+    const submitBtn = document.getElementById('docSubmitBtn');
     const catSelect = document.getElementById('docCategorySelect');
     const updateAmountLabels = () => {
       if (menuKey === 'property') {
