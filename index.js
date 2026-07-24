@@ -1896,10 +1896,10 @@ class App {
           const remainingToService = 10000 - kmsSinceService;
 
           let serviceBadge = '';
-          if (kmsSinceService >= 10000) {
-            serviceBadge = `<span class="card-badge badge-danger">⚠️ Needs to be Serviced (${kmsSinceService.toLocaleString()} KM since service)</span>`;
+          if (remainingToService <= 0) {
+            serviceBadge = `<span class="card-badge badge-danger" style="background:#ef4444; color:white; font-weight:800; font-size:0.85rem; padding:6px 12px; display:inline-block;">⚠️ Service Due! (${kmsSinceService.toLocaleString()} KM driven since service)</span>`;
           } else {
-            serviceBadge = `<span class="card-badge badge-success">⚙️ Remaining ${remainingToService.toLocaleString()} KM to service</span>`;
+            serviceBadge = `<span class="card-badge badge-danger" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.4); font-weight:700; font-size:0.85rem; padding:6px 12px; display:inline-block;">⚙️ Remaining ${remainingToService.toLocaleString()} KM to service</span>`;
           }
 
           return `
@@ -1914,14 +1914,17 @@ class App {
                 <div style="margin-top:6px;">${serviceBadge}</div>
               </div>
 
-              <div style="font-size:0.85rem; color:var(--text-muted); display:flex; justify-content:space-between;">
+              <div style="font-size:0.85rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:8px;">
                 <span>Tax Status: <strong>${v.tax_paid_status}</strong> (₹${v.tax_amount || 0})</span>
                 <span>Last Service: ${v.last_service_date || 'N/A'}</span>
               </div>
 
-              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
-                <button class="action-btn" style="padding:6px 10px; font-size:0.8rem; flex:1;" onclick="app.openVehicleModal('service', ${v.id})">
-                  🔧 Log Service / KMs
+              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
+                <button class="action-btn" style="padding:6px 10px; font-size:0.8rem; background:linear-gradient(135deg, #4f46e5, #4338ca);" onclick="app.openVehicleModal('service', ${v.id})">
+                  🔧 Log Service
+                </button>
+                <button class="action-btn" style="padding:6px 10px; font-size:0.8rem; background:linear-gradient(135deg, #0284c7, #0369a1);" onclick="app.openVehicleKmsModal(${v.id})">
+                  📊 Log KMs
                 </button>
                 <button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(234,179,8,0.2); color:#fbbf24; border:1px solid rgba(234,179,8,0.3);" onclick="app.openVehicleExpenseModal('Vehicle EMI', ${v.id})">
                   💳 Log EMI
@@ -1938,12 +1941,50 @@ class App {
     `;
   }
 
+  openVehicleKmsModal(vehId) {
+    const veh = this.vehicles.find(v => v.id == vehId);
+    if (!veh) return;
+    document.getElementById('vehKmsVehId').value = vehId;
+    document.getElementById('vehKmsVehName').value = `${veh.vehicle_name} (${veh.rc_number})`;
+    document.getElementById('vehKmsInput').value = veh.total_kms_driven || 0;
+    this.openModal('vehicleKmsModal');
+  }
+
+  async handleVehicleKmsSubmit(e) {
+    e.preventDefault();
+    const vehId = document.getElementById('vehKmsVehId').value;
+    const newKms = document.getElementById('vehKmsInput').value;
+
+    try {
+      const res = await fetch('/api/vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_id: this.currentCompany.id,
+          action: 'update_kms',
+          id: vehId,
+          total_kms_driven: newKms
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(data.message || 'Odometer KMs updated successfully!');
+        this.closeModal('vehicleKmsModal');
+        await this.loadVehicles();
+        this.renderVehiclesMenu();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   openVehicleModal(mode, vehId = null) {
     const actionInput = document.getElementById('vehAction');
     const vehIdInput = document.getElementById('vehId');
     const title = document.getElementById('vehicleModalTitle');
     const createFields = document.getElementById('vehCreateFields');
     const serviceFields = document.getElementById('vehServiceFields');
+    const kmsGroup = document.getElementById('vehKms')?.closest('.form-group');
 
     actionInput.value = mode;
     vehIdInput.value = vehId || '';
@@ -1952,6 +1993,7 @@ class App {
       title.innerText = 'Add New Vehicle';
       createFields.style.display = 'block';
       serviceFields.style.display = 'none';
+      if (kmsGroup) kmsGroup.style.display = 'block';
       document.getElementById('vehName').required = true;
       document.getElementById('vehRc').required = true;
       document.getElementById('vehName').value = '';
@@ -1959,16 +2001,18 @@ class App {
       document.getElementById('vehKms').value = '';
     } else {
       const veh = this.vehicles.find(v => v.id == vehId);
-      title.innerText = `Update Service & KMs for ${veh?.vehicle_name || 'Vehicle'}`;
+      title.innerText = `Log Service for ${veh?.vehicle_name || 'Vehicle'}`;
       createFields.style.display = 'none';
       serviceFields.style.display = 'block';
+      if (kmsGroup) kmsGroup.style.display = 'none';
       document.getElementById('vehName').required = false;
       document.getElementById('vehRc').required = false;
-      document.getElementById('vehKms').value = veh ? veh.total_kms_driven : '';
       document.getElementById('vehServiceDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('vehServiceAmt').value = '';
     }
 
     this.openModal('vehicleModal');
+    this.setupDatePickers();
   }
 
   async handleVehicleSubmit(e) {
@@ -1977,9 +2021,9 @@ class App {
     const vehId = document.getElementById('vehId').value;
 
     if (mode === 'service') {
-      const newKms = document.getElementById('vehKms').value;
       const sDate = document.getElementById('vehServiceDate').value;
       const sAmt = parseFloat(document.getElementById('vehServiceAmt').value) || 0;
+      const desc = document.getElementById('vehDesc').value.trim();
 
       try {
         const res = await fetch('/api/vehicles', {
@@ -1989,9 +2033,9 @@ class App {
             company_id: this.currentCompany.id,
             action: 'update_service',
             id: vehId,
-            total_kms_driven: newKms,
             service_date: sDate,
-            service_amount: sAmt
+            service_amount: sAmt,
+            description: desc
           })
         });
         const data = await res.json();

@@ -54,12 +54,12 @@
           style="width: 100%; justify-content: center; padding: 12px; font-size: 1rem; margin-top: 6px;">
           🚀 Login to Portal
         </button>
-<!-- 
+
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.82rem;">
           <button type="button" onclick="app.initializeDatabase()"
             style="background: none; border: none; color: #818cf8; text-decoration: underline; cursor: pointer; font-weight: 600;">⚡
             Initialize DB & Tables</button>
-        </div> -->
+        </div>
 
       </form>
     </div>
@@ -485,6 +485,32 @@
           <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
             <button type="button" class="action-btn secondary" onclick="app.closeModal('vehicleModal')">Cancel</button>
             <button type="submit" class="action-btn">Save Vehicle Entry</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Vehicle Log KMs Modal -->
+    <div class="modal-overlay" id="vehicleKmsModal">
+      <div class="modal-card" style="max-width: 460px;">
+        <div class="modal-header">
+          <h3 class="modal-title" id="vehKmsModalTitle">Update Odometer KMs</h3>
+          <button class="modal-close" onclick="app.closeModal('vehicleKmsModal')">&times;</button>
+        </div>
+        <form id="vehicleKmsForm" onsubmit="app.handleVehicleKmsSubmit(event)">
+          <input type="hidden" id="vehKmsVehId" value="">
+          <div class="form-group">
+            <label class="form-label">Vehicle Name</label>
+            <input type="text" id="vehKmsVehName" class="form-input" readonly style="background:rgba(15,23,42,0.6); color:var(--text-muted);">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Odometer Total KMs Driven *</label>
+            <input type="number" id="vehKmsInput" class="form-input" placeholder="e.g. 12500" required>
+            <span class="date-hint">📊 Entering new KMs compares against last service KMs and updates remaining KMs count.</span>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+            <button type="button" class="action-btn secondary" onclick="app.closeModal('vehicleKmsModal')">Cancel</button>
+            <button type="submit" class="action-btn">Save Odometer KMs</button>
           </div>
         </form>
       </div>

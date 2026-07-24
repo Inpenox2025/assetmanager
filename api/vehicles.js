@@ -1,3 +1,4 @@
+
 const { getSQL } = require("../shared/db");
 
 module.exports = async function handler(req, res) {
@@ -25,21 +26,23 @@ module.exports = async function handler(req, res) {
     if (req.method === "POST") {
       const { action, id, vehicle_name, rc_number, total_kms_driven, tax_paid_status, tax_amount, description, service_amount, service_date, document_id } = req.body || {};
 
-      // Action: Log Service Update
+      // Action: Log Service Only
       if (action === "update_service") {
-        if (!id || total_kms_driven === undefined || !service_amount || !service_date) {
-          return res.status(400).json({ error: "Vehicle ID, new KMs driven, service amount, and date are required" });
+        if (!id || !service_amount || !service_date) {
+          return res.status(400).json({ error: "Vehicle ID, service amount, and date are required" });
         }
 
-        const newKms = parseInt(total_kms_driven);
+        const vehs = await sql`SELECT * FROM vehicles WHERE id = ${id}`;
+        if (!vehs.length) return res.status(404).json({ error: "Vehicle not found" });
+        const veh = vehs[0];
+        const currentKms = veh.total_kms_driven || 0;
         const sAmt = parseFloat(service_amount) || 0;
 
-        // Update Vehicle record: total_kms_driven, set kms_at_last_service = newKms, last_service_date = service_date
+        // Reset service baseline: set kms_at_last_service = currentKms, last_service_date = service_date
         await sql`
           UPDATE vehicles
           SET
-            total_kms_driven = ${newKms},
-            kms_at_last_service = ${newKms},
+            kms_at_last_service = ${currentKms},
             last_service_date = ${service_date}
           WHERE id = ${id}
         `;
@@ -47,13 +50,39 @@ module.exports = async function handler(req, res) {
         // Log Service History Entry
         await sql`
           INSERT INTO vehicle_service_logs (vehicle_id, service_date, service_amount, kms_driven, document_id)
-          VALUES (${id}, ${service_date}, ${sAmt}, ${newKms}, ${document_id || null})
+          VALUES (${id}, ${service_date}, ${sAmt}, ${currentKms}, ${document_id || null})
+        `;
+
+        // Create document entry under 'vehicles' category 'Vehicle Service' so amount is deducted from daily budget
+        await sql`
+          INSERT INTO documents (company_id, menu_key, category, amount, doc_date, metadata)
+          VALUES (${companyId}, 'vehicles', 'Vehicle Service', ${sAmt}, ${service_date}, ${JSON.stringify({ vehicle_id: id, vehicle_name: veh.vehicle_name, rc_number: veh.rc_number, notes: description || '' })})
         `;
 
         return res.status(200).json({
           success: true,
-          message: `Vehicle service updated successfully at ${newKms.toLocaleString()} km! Next service reminder set in 10,000 km.`,
-          toast: `Service logged successfully for vehicle. Next service in 10,000 KMs.`
+          message: `Vehicle service logged successfully for ₹ ${sAmt.toLocaleString()}! Service reminder reset to 10,000 KMs.`,
+          toast: `Service logged successfully. Next service in 10,000 KMs.`
+        });
+      }
+
+      // Action: Update KMs Only
+      if (action === "update_kms") {
+        if (!id || total_kms_driven === undefined) {
+          return res.status(400).json({ error: "Vehicle ID and total KMs driven are required" });
+        }
+
+        const newKms = parseInt(total_kms_driven) || 0;
+
+        await sql`
+          UPDATE vehicles
+          SET total_kms_driven = ${newKms}
+          WHERE id = ${id}
+        `;
+
+        return res.status(200).json({
+          success: true,
+          message: `Total KMs updated to ${newKms.toLocaleString()} KM!`
         });
       }
 
