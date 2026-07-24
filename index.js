@@ -824,7 +824,12 @@ class App {
       const res = await fetch(`/api/documents?company_id=${this.currentCompany.id}`);
       const data = await res.json();
       if (data.success) {
-        this.documents = data.documents;
+        this.documents = (data.documents || []).map(doc => {
+          if (typeof doc.metadata === 'string') {
+            try { doc.metadata = JSON.parse(doc.metadata); } catch(e) {}
+          }
+          return doc;
+        });
       }
     } catch (e) {
       console.error(e);
@@ -1594,7 +1599,7 @@ class App {
         <table>
           <thead>
             <tr>
-              <th>#</th>
+              <th>S.No</th>
               <th>Module</th>
               <th>Category</th>
               <th>Description / Purpose</th>
@@ -2101,19 +2106,19 @@ class App {
                 </div>
               </div>
 
-              <!-- Right Side: Full Width Expenses & Document History Table -->
-              <div style="flex:1; min-width:320px; display:flex; flex-direction:column;">
-                <div style="font-size:0.95rem; font-weight:700; color:#fbbf24; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+              <!-- Right Side: Scrollable Expenses & Document History Table -->
+              <div style="flex:1; min-width:320px; max-height:280px; display:flex; flex-direction:column; overflow:hidden;">
+                <div style="font-size:0.95rem; font-weight:700; color:#fbbf24; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
                   <span>📋 Logged Expenses & Documents for ${v.vehicle_name}</span>
                   <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">${vehDocs.length} Total Entries</span>
                 </div>
                 ${vehDocs.length === 0 ? `
                   <div style="font-size:0.85rem; color:var(--text-muted); padding:30px; text-align:center; background:rgba(15,23,42,0.4); border-radius:8px; flex:1; display:flex; align-items:center; justify-content:center;">No service, EMI, or fuel receipts logged for this vehicle.</div>
                 ` : `
-                  <div class="table-container" style="margin:0; overflow-x:auto; max-height:280px; overflow-y:auto;">
-                    <table class="custom-table" style="font-size:0.82rem;">
+                  <div class="table-container" style="margin:0; flex:1; overflow-x:auto; overflow-y:auto; max-height:230px;">
+                    <table class="custom-table" style="font-size:0.82rem; border-collapse:collapse; width:100%;">
                       <thead>
-                        <tr>
+                        <tr style="position:sticky; top:0; z-index:5; background:#0f172a;">
                           <th>Date</th>
                           <th>Category</th>
                           <th>Notes / Purpose</th>
@@ -2403,6 +2408,7 @@ class App {
         this.showToast(`${category} of ₹ ${amount.toLocaleString()} logged & deducted from daily budget!`);
         this.closeModal('vehicleExpenseModal');
         await this.loadDocuments();
+        await this.loadVehicles();
         await this.loadBudget();
         this.renderVehiclesMenu();
       } else {
@@ -2914,8 +2920,13 @@ class App {
       await fetch(`/api/documents?id=${id}`, { method: 'DELETE' });
       this.showToast('Document entry deleted');
       await this.loadDocuments();
+      await this.loadVehicles();
       await this.loadBudget();
-      this.renderCurrentMenu();
+      if (this.currentMenu === 'vehicles') {
+        this.renderVehiclesMenu();
+      } else {
+        this.renderCurrentMenu();
+      }
     } catch (e) {
       console.error(e);
     }
