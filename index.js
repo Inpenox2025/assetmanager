@@ -1491,6 +1491,135 @@ class App {
     `;
   }
 
+  print5PMReport() {
+    if (!this.currentCompany) return;
+    const companyName = this.currentCompany.name || 'Company';
+    const companyGst  = this.currentCompany.gst_number || 'N/A';
+    const logoData    = this.currentCompany.logo_data || '';
+    const todayStr    = new Date().toISOString().split('T')[0];
+
+    const todayDocs = this.documents.filter(d => {
+      let dDate = d.doc_date;
+      if (dDate && dDate.includes('T')) dDate = dDate.split('T')[0];
+      return dDate === todayStr;
+    });
+
+    const setBudget = parseFloat(this.budget.set_amount || 0);
+    const carriedOver = parseFloat(this.budget.carried_over_amount || 0);
+    const todayExpensesTotal = todayDocs.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+    const todayRemainingBalance = parseFloat(this.budget.remaining_amount || 0);
+
+    const logoHtml = logoData ? `<img src="${logoData}" style="width:48px; height:48px; object-fit:cover; border-radius:6px;">` : '🏢';
+
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      alert('Popup blocked! Please allow popups to export/print PDF report.');
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${this.escapeHtml(companyName)} - Daily 5:00 PM Financial Report (${todayStr})</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          body { font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; margin: 0; padding: 24px; background: #fff; line-height: 1.5; }
+          .print-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px; }
+          .company-brand { display: flex; align-items: center; gap: 14px; }
+          .company-name { font-size: 1.6rem; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
+          .company-gst { font-size: 0.85rem; color: #475569; font-weight: 600; margin-top: 2px; }
+          .report-title-badge { text-align: right; }
+          .report-title { font-size: 1.15rem; font-weight: 800; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; }
+          .report-date { font-size: 0.85rem; color: #64748b; margin-top: 4px; font-weight: 600; }
+          .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+          .summary-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
+          .card-label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+          .card-val { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-top: 4px; }
+          .section-heading { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: 12px; border-left: 4px solid #f59e0b; padding-left: 10px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; }
+          th { background: #0f172a; color: #fff; text-align: left; padding: 10px 12px; font-weight: 700; }
+          td { border-bottom: 1px solid #e2e8f0; padding: 10px 12px; color: #334155; }
+          tr:nth-child(even) { background: #f8fafc; }
+          .amount-col { font-weight: 700; color: #dc2626; text-align: right; }
+          .footer-note { margin-top: 36px; font-size: 0.78rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+          .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.75rem; background: #e2e8f0; color: #334155; }
+        </style>
+      </head>
+      <body>
+        <div class="print-header">
+          <div class="company-brand">
+            ${logoHtml}
+            <div>
+              <div class="company-name">${this.escapeHtml(companyName)}</div>
+              <div class="company-gst">GSTIN: ${this.escapeHtml(companyGst)}</div>
+            </div>
+          </div>
+          <div class="report-title-badge">
+            <div class="report-title">5:00 PM Daily Financial Report</div>
+            <div class="report-date">Date: ${todayStr} (5:00 PM IST)</div>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="card-label">Set Maintenance</div>
+            <div class="card-val">₹ ${setBudget.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+          </div>
+          <div class="summary-card">
+            <div class="card-label">Carried Over</div>
+            <div class="card-val" style="color:#2563eb;">₹ ${carriedOver.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+          </div>
+          <div class="summary-card">
+            <div class="card-label">Total Spent Today</div>
+            <div class="card-val" style="color:#dc2626;">₹ ${todayExpensesTotal.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+          </div>
+          <div class="summary-card">
+            <div class="card-label">Remaining Balance</div>
+            <div class="card-val" style="color:#16a34a;">₹ ${todayRemainingBalance.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+          </div>
+        </div>
+
+        <div class="section-heading">Itemized List of Expenditures (${todayDocs.length} Transactions Logged Today)</div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Module</th>
+              <th>Category</th>
+              <th>Description / Purpose</th>
+              <th style="text-align:right;">Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${todayDocs.length === 0 ? `<tr><td colspan="5" style="text-align:center; color:#64748b; padding:20px;">No expenses logged today yet.</td></tr>` : ''}
+            ${todayDocs.map((d, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td><span class="badge">${d.menu_key.toUpperCase()}</span></td>
+                <td><strong>${this.escapeHtml(d.category)}</strong></td>
+                <td>${this.escapeHtml(d.metadata?.property_name || d.metadata?.person_name || d.metadata?.bank_name || d.metadata?.vehicle_name || d.metadata?.purpose || d.category)}</td>
+                <td class="amount-col">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer-note">
+          This is an official computer-generated daily financial expense report for <strong>${this.escapeHtml(companyName)}</strong> (GST: ${this.escapeHtml(companyGst)}).
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   /* Generic Document Menu Renderer with Clean Separated Columns per Module */
   renderGenericMenu(title, menuKey, categories, isFinancialYearFilter = false) {
     const main = document.getElementById('mainContent');
