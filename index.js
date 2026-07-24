@@ -2024,6 +2024,7 @@ class App {
 
   /* Menu 6: Vehicles Menu (Side-by-side horizontal vehicle card and document table) */
   renderVehiclesMenu() {
+    this.currentMenu = 'vehicles';
     const main = document.getElementById('mainContent');
 
     main.innerHTML = `
@@ -2914,6 +2915,7 @@ class App {
         this.pendingUploadFiles = [];
         this.editingDocId = null;
         await this.loadDocuments();
+        await this.loadVehicles();
         await this.loadBudget();
         this.renderCurrentMenu();
       } else {
@@ -2938,11 +2940,7 @@ class App {
       await this.loadDocuments();
       await this.loadVehicles();
       await this.loadBudget();
-      if (this.currentMenu === 'vehicles') {
-        this.renderVehiclesMenu();
-      } else {
-        this.renderCurrentMenu();
-      }
+      this.renderCurrentMenu();
     } catch (e) {
       console.error(e);
     }
@@ -2950,7 +2948,7 @@ class App {
 
   /* Universal Document Viewer & Editor with Multi-File Switcher */
   async viewDocument(docId, targetFileId = 0) {
-    const doc = this.documents.find(d => d.id === docId);
+    const doc = this.documents.find(d => d.id == docId);
     if (!doc) return;
     const files = doc.files || [];
     let file = files.find(f => f.id === targetFileId) || files[0];
