@@ -66,30 +66,41 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // Action: Update KMs Only (Adds new reading to previous meter reading)
+      // Action: Update Current Odometer KMs
       if (action === "update_kms") {
         if (!id || total_kms_driven === undefined) {
-          return res.status(400).json({ error: "Vehicle ID and KMs reading are required" });
+          return res.status(400).json({ error: "Vehicle ID and odometer KMs reading are required" });
         }
 
-        const vehs = await sql`SELECT total_kms_driven FROM vehicles WHERE id = ${id}`;
-        if (!vehs.length) return res.status(404).json({ error: "Vehicle not found" });
-
-        const prevKms = parseInt(vehs[0].total_kms_driven || 0);
-        const inputKms = parseInt(total_kms_driven) || 0;
-
-        // Add to previous meter reading
-        const newTotalKms = prevKms + inputKms;
+        const newKms = parseInt(total_kms_driven) || 0;
 
         await sql`
           UPDATE vehicles
-          SET total_kms_driven = ${newTotalKms}
+          SET total_kms_driven = ${newKms}
           WHERE id = ${id}
         `;
 
         return res.status(200).json({
           success: true,
-          message: `Added ${inputKms.toLocaleString()} KM to meter reading! Total KMs: ${newTotalKms.toLocaleString()} KM.`
+          message: `Odometer reading updated to ${newKms.toLocaleString()} KM!`
+        });
+      }
+
+      // Action: Reset Odometer Reading & Service Baseline
+      if (action === "reset_odometer") {
+        if (!id) return res.status(400).json({ error: "Vehicle ID is required" });
+
+        const resetKms = parseInt(total_kms_driven || 0);
+
+        await sql`
+          UPDATE vehicles
+          SET total_kms_driven = ${resetKms}, kms_at_last_service = ${resetKms}
+          WHERE id = ${id}
+        `;
+
+        return res.status(200).json({
+          success: true,
+          message: `Odometer reset to ${resetKms.toLocaleString()} KM! Service baseline reset to ${resetKms.toLocaleString()} KM.`
         });
       }
 

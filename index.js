@@ -2036,14 +2036,14 @@ class App {
         ${this.vehicles.map(v => {
           const totalKms = parseInt(v.total_kms_driven || 0);
           const lastServiceKms = parseInt(v.kms_at_last_service || 0);
-          const kmsSinceService = totalKms - lastServiceKms;
+          const kmsSinceService = Math.max(0, totalKms - lastServiceKms);
           const remainingToService = 10000 - kmsSinceService;
 
           let serviceBadge = '';
-          if (kmsSinceService >= 10000) {
-            serviceBadge = `<span class="red-blinking-alert">⚠️ NEED SERVICE! (${kmsSinceService.toLocaleString()} KM driven since service)</span>`;
+          if (remainingToService <= 0) {
+            serviceBadge = `<span class="red-blinking-alert">⚠️ NEED SERVICE! (${kmsSinceService.toLocaleString()} KM driven since baseline)</span>`;
           } else {
-            serviceBadge = `<span class="green-service-badge">⚙️ Remaining ${remainingToService.toLocaleString()} KM to reach 10,000 KM to get service</span>`;
+            serviceBadge = `<span class="green-service-badge">⚙️ Need ${remainingToService.toLocaleString()} KM more to get service</span>`;
           }
 
           let lastServiceFormatted = 'N/A';
@@ -2095,11 +2095,43 @@ class App {
   openVehicleKmsModal(vehId) {
     const veh = this.vehicles.find(v => v.id == vehId);
     if (!veh) return;
+    const totalKms = parseInt(veh.total_kms_driven || 0);
+    const lastServiceKms = parseInt(veh.kms_at_last_service || 0);
+    const driven = Math.max(0, totalKms - lastServiceKms);
     document.getElementById('vehKmsVehId').value = vehId;
-    document.getElementById('vehKmsVehName').value = `${veh.vehicle_name} (${veh.rc_number}) — Current Odometer: ${parseInt(veh.total_kms_driven || 0).toLocaleString()} KM`;
-    document.getElementById('vehKmsInput').value = '';
-    document.getElementById('vehKmsInput').placeholder = 'Enter added KMs (e.g. 1000)';
+    document.getElementById('vehKmsVehName').value = `${veh.vehicle_name} (${veh.rc_number}) — Odometer: ${totalKms.toLocaleString()} KM (${driven.toLocaleString()} KM driven since baseline)`;
+    document.getElementById('vehKmsInput').value = totalKms;
     this.openModal('vehicleKmsModal');
+  }
+
+  async resetOdometerPrompt(vehId) {
+    const veh = this.vehicles.find(v => v.id == vehId);
+    if (!veh) return;
+    const inputVal = prompt(`Reset Odometer Reading for ${veh.vehicle_name}:\n\nEnter new baseline Odometer KMs (e.g. 0 or 2000):`, '0');
+    if (inputVal === null) return;
+    const resetKms = parseInt(inputVal) || 0;
+
+    try {
+      const res = await fetch('/api/vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_id: this.currentCompany.id,
+          action: 'reset_odometer',
+          id: vehId,
+          total_kms_driven: resetKms
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(data.message || 'Odometer reset successfully!');
+        this.closeModal('vehicleKmsModal');
+        await this.loadVehicles();
+        this.renderVehiclesMenu();
+      }
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async handleVehicleKmsSubmit(e) {

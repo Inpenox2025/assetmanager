@@ -491,25 +491,30 @@
 
     <!-- Vehicle Log KMs Modal -->
     <div class="modal-overlay" id="vehicleKmsModal">
-      <div class="modal-card" style="max-width: 460px;">
+      <div class="modal-card" style="max-width: 480px;">
         <div class="modal-header">
-          <h3 class="modal-title" id="vehKmsModalTitle">Update Odometer KMs</h3>
+          <h3 class="modal-title" id="vehKmsModalTitle">Update Odometer KMs Reading</h3>
           <button class="modal-close" onclick="app.closeModal('vehicleKmsModal')">&times;</button>
         </div>
         <form id="vehicleKmsForm" onsubmit="app.handleVehicleKmsSubmit(event)">
           <input type="hidden" id="vehKmsVehId" value="">
           <div class="form-group">
-            <label class="form-label">Vehicle Name</label>
+            <label class="form-label">Vehicle Name & Current Status</label>
             <input type="text" id="vehKmsVehName" class="form-input" readonly style="background:rgba(15,23,42,0.6); color:var(--text-muted);">
           </div>
           <div class="form-group">
-            <label class="form-label">Current Odometer Total KMs Driven *</label>
-            <input type="number" id="vehKmsInput" class="form-input" placeholder="e.g. 12500" required>
-            <span class="date-hint">📊 Entering new KMs compares against last service KMs and updates remaining KMs count.</span>
+            <label class="form-label">Current Total Odometer Reading (KMs) *</label>
+            <input type="number" id="vehKmsInput" class="form-input" placeholder="e.g. 5000 or 8000" required>
+            <span class="date-hint">📊 Enter total current odometer reading. If driven KMs since baseline reaches 10,000 KM, alert will blink red.</span>
           </div>
-          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
-            <button type="button" class="action-btn secondary" onclick="app.closeModal('vehicleKmsModal')">Cancel</button>
-            <button type="submit" class="action-btn">Save Odometer KMs</button>
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-top:14px;">
+            <button type="button" class="action-btn secondary" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4);" onclick="app.resetOdometerPrompt(document.getElementById('vehKmsVehId').value)">
+              🔄 Reset Odometer Baseline
+            </button>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="action-btn secondary" onclick="app.closeModal('vehicleKmsModal')">Cancel</button>
+              <button type="submit" class="action-btn">Save Odometer Reading</button>
+            </div>
           </div>
         </form>
       </div>
