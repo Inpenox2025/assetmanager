@@ -2695,6 +2695,13 @@ class App {
           <input type="text" id="formPurpose" class="form-input" placeholder="e.g. ROC Filing & Stamp Duty">
         </div>
       `;
+    } else if (menuKey === 'vehicles') {
+      formFields.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">Notes / Description</label>
+          <input type="text" id="vehDocNotes" class="form-input" placeholder="e.g. Fuel receipt / Service bill / EMI">
+        </div>
+      `;
     }
 
     this.openModal('docUploadModal');
@@ -2702,7 +2709,7 @@ class App {
   }
 
   editDoc(docId) {
-    const doc = this.documents.find(d => d.id === docId);
+    const doc = this.documents.find(d => d.id == docId);
     if (!doc) return;
 
     // Set editingDocId BEFORE calling openDocUploadModal (which previously wiped it)
@@ -2754,6 +2761,8 @@ class App {
       if (document.getElementById('formPerson')) document.getElementById('formPerson').value = meta.person_name || '';
       if (document.getElementById('formPhone')) document.getElementById('formPhone').value = meta.phone || '';
       if (document.getElementById('formPurpose')) document.getElementById('formPurpose').value = meta.purpose || '';
+    } else if (doc.menu_key === 'vehicles') {
+      if (document.getElementById('vehDocNotes')) document.getElementById('vehDocNotes').value = meta.notes || meta.description || '';
     }
 
     this.pendingUploadFiles = (doc.files || []).map((f, idx) => ({
@@ -2863,6 +2872,13 @@ class App {
       metadata.person_name = document.getElementById('formPerson')?.value || '';
       metadata.phone = document.getElementById('formPhone')?.value || '';
       metadata.purpose = document.getElementById('formPurpose')?.value || '';
+    } else if (modalMenuKey === 'vehicles') {
+      const existingDoc = this.documents.find(d => d.id == this.editingDocId);
+      const existingMeta = existingDoc?.metadata || {};
+      metadata.vehicle_id = existingMeta.vehicle_id || null;
+      metadata.vehicle_name = existingMeta.vehicle_name || '';
+      metadata.rc_number = existingMeta.rc_number || '';
+      metadata.notes = document.getElementById('vehDocNotes')?.value || existingMeta.notes || '';
     }
 
     const isEditing = Boolean(this.editingDocId);
