@@ -1320,9 +1320,14 @@ class App {
               ${todayStr} — Total expenses, itemized spending breakdown, and remaining daily balance.
             </div>
           </div>
-          <button class="action-btn secondary" style="padding:6px 12px; font-size:0.8rem;" onclick="app.toggle5PMReportPreview()">
-            ${this.force5PMReportPreview ? '✖ Close Preview' : '👁️ Preview 5 PM Report'}
-          </button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="action-btn" style="padding:6px 12px; font-size:0.8rem; background:linear-gradient(135deg, #10b981, #059669);" onclick="app.print5PMReport()">
+              📄 Export PDF / Print
+            </button>
+            <button class="action-btn secondary" style="padding:6px 12px; font-size:0.8rem;" onclick="app.toggle5PMReportPreview()">
+              ${this.force5PMReportPreview ? '✖ Close Preview' : '👁️ Preview 5 PM Report'}
+            </button>
+          </div>
         </div>
 
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:16px;">

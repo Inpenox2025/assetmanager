@@ -140,7 +140,7 @@ html, body {
 .company-info { display: flex; flex-direction: column; min-width: 0; }
 
 .company-name {
-  font-size: 1rem; font-weight: 700; color: #fff;
+  font-size: 1rem; font-weight: 700; color: #fff200;
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -281,7 +281,7 @@ html, body {
 .sidebar-company-name {
   font-size: 0.88rem;
   font-weight: 700;
-  color: #ffffff;
+  color: #fff200;
   line-height: 1.25;
   word-break: break-word;
 }
