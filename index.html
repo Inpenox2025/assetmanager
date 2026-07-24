@@ -135,8 +135,8 @@
       <form class="set-budget-form" onsubmit="app.handleSetBudget(event)" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="number" step="0.01" min="0" id="setBudgetInput" class="budget-input" placeholder="Set Budget ₹"
           required>
-        <label style="cursor:pointer; background:rgba(30,41,59,0.8); border:1px solid var(--border-color); padding:6px 10px; border-radius:var(--radius-md); font-size:0.8rem; color:var(--text-muted); display:inline-flex; align-items:center; gap:4px;" title="Upload Receipt (Optional)">
-          📎 <span id="widgetReceiptFileLabel">Receipt</span>
+        <label style="cursor:pointer; background:rgba(30,41,59,0.8); border:1px solid #eab308; padding:6px 10px; border-radius:var(--radius-md); font-size:0.8rem; color:#fef08a; display:inline-flex; align-items:center; gap:4px;" title="Upload Receipt Document (Mandatory)">
+          📎 <span id="widgetReceiptFileLabel">Receipt *</span>
           <input type="file" id="budgetWidgetReceiptInput" accept="image/*,.pdf,.doc,.docx" style="display:none;" onchange="app.handleBudgetWidgetReceiptSelect(event)">
         </label>
         <button type="submit" class="action-btn">Set Maintenance</button>
@@ -241,7 +241,7 @@
                 autocomplete="off">
             </div>
             <div class="form-group">
-              <label class="form-label">Company Logo (Optional)</label>
+              <label class="form-label">Company Logo </label>
               <input type="file" id="newCompanyLogo" accept="image/*" class="form-input">
             </div>
             <div style="display:flex; gap:10px;">
@@ -397,7 +397,6 @@
           <div class="form-group">
             <label class="form-label">Date *</label>
             <input type="date" id="docDateInput" class="form-input" required>
-            <span class="date-hint">📅 Back-dating supported (defaults to today).</span>
           </div>
 
           <!-- Dynamic Menu Specific Input Fields -->
@@ -539,11 +538,11 @@
             <input type="number" step="0.01" min="0.01" id="vehExpAmount" class="form-input" placeholder="e.g. 1500" required>
           </div>
           <div class="form-group">
-            <label class="form-label">Fuel Station / EMI Notes (Optional)</label>
+            <label class="form-label">Fuel Station / EMI Notes </label>
             <input type="text" id="vehExpNotes" class="form-input" placeholder="e.g. Shell Petrol Bunk / Monthly EMI">
           </div>
           <div class="form-group">
-            <label class="form-label">Attach Receipt / Document (Optional)</label>
+            <label class="form-label">Attach Receipt / Document </label>
             <input type="file" id="vehExpReceiptFile" accept="image/*,.pdf,.doc,.docx" class="form-input">
           </div>
           <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">

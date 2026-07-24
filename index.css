@@ -931,4 +931,33 @@ html, body {
   }
 }
 
+/* ── Red Blinking Alert for Service Needed (>= 10,000 KM) ── */
+@keyframes redBlinkAlert {
+  0% { opacity: 1; background: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.9); }
+  50% { opacity: 0.35; background: #7f1d1d; box-shadow: none; }
+  100% { opacity: 1; background: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.9); }
+}
+
+.red-blinking-alert {
+  animation: redBlinkAlert 1.2s infinite ease-in-out !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  border-radius: var(--radius-md) !important;
+  padding: 6px 12px !important;
+  display: inline-block !important;
+  font-size: 0.85rem !important;
+  border: 1px solid #f87171 !important;
+}
+
+.green-service-badge {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+  padding: 6px 12px !important;
+  display: inline-block !important;
+  border-radius: var(--radius-md) !important;
+}
+
 

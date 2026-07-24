@@ -196,9 +196,12 @@ module.exports = async function handler(req, res) {
       const numCompId  = parseInt(company_id);
       const numSetAmt  = parseFloat(set_amount) || 0;
       const targetDate = budget_date || todayStr;
-      const notesVal   = notes || "";
       const rData      = receipt_file_data || null;
       const rName      = receipt_file_name || null;
+
+      if (!rData) {
+        return res.status(400).json({ error: "Budget receipt document is mandatory. Please attach a receipt file before setting budget." });
+      }
 
       // Previous day carryover
       const prevBudgets = await sql`

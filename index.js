@@ -791,8 +791,13 @@ class App {
   async handleSetBudget(e) {
     e.preventDefault();
     const amount = parseFloat(document.getElementById('setBudgetInput').value) || 0;
-    const rData = this.pendingBudgetWidgetReceipt ? this.pendingBudgetWidgetReceipt.data : null;
-    const rName = this.pendingBudgetWidgetReceipt ? this.pendingBudgetWidgetReceipt.name : null;
+    if (!this.pendingBudgetWidgetReceipt || !this.pendingBudgetWidgetReceipt.data) {
+      alert('⚠️ Receipt Attachment Mandatory!\n\nPlease click on "📎 Receipt *" to attach a receipt document file before setting the daily maintenance budget.');
+      this.showToast('Receipt attachment is mandatory to set budget', 'error');
+      return;
+    }
+    const rData = this.pendingBudgetWidgetReceipt.data;
+    const rName = this.pendingBudgetWidgetReceipt.name;
 
     try {
       const res = await fetch('/api/budget', {
@@ -1022,11 +1027,11 @@ class App {
               <input type="number" step="0.01" min="0" id="budgetModalAmount" class="form-input" placeholder="e.g. 50000" required>
             </div>
             <div class="form-group">
-              <label class="form-label">Attach Receipt / Document (Optional)</label>
-              <input type="file" id="budgetModalReceiptFile" accept="image/*,.pdf,.doc,.docx" class="form-input">
+              <label class="form-label">Attach Receipt / Document * (Mandatory)</label>
+              <input type="file" id="budgetModalReceiptFile" accept="image/*,.pdf,.doc,.docx" class="form-input" required>
             </div>
             <div class="form-group">
-              <label class="form-label">Notes (optional)</label>
+              <label class="form-label">Notes </label>
               <input type="text" id="budgetModalNotes" class="form-input" placeholder="e.g. Festival season budget">
             </div>
             <input type="hidden" id="budgetModalEditId" value="">
@@ -1227,6 +1232,11 @@ class App {
     }
 
     const isEditing = Boolean(editId);
+    if (!rData && !isEditing) {
+      alert('⚠️ Receipt Attachment Mandatory!\n\nPlease attach a receipt document file before saving the daily maintenance budget.');
+      this.showToast('Receipt attachment is mandatory to set budget', 'error');
+      return;
+    }
     const method    = isEditing ? 'PUT' : 'POST';
     const payload   = isEditing
       ? { id: parseInt(editId), set_amount: amount, notes, receipt_file_data: rData, receipt_file_name: rName }
@@ -2030,10 +2040,17 @@ class App {
           const remainingToService = 10000 - kmsSinceService;
 
           let serviceBadge = '';
-          if (remainingToService <= 0) {
-            serviceBadge = `<span class="card-badge badge-danger" style="background:#ef4444; color:white; font-weight:800; font-size:0.85rem; padding:6px 12px; display:inline-block;">⚠️ Service Due! (${kmsSinceService.toLocaleString()} KM driven since service)</span>`;
+          if (kmsSinceService >= 10000) {
+            serviceBadge = `<span class="red-blinking-alert">⚠️ NEED SERVICE! (${kmsSinceService.toLocaleString()} KM driven since service)</span>`;
           } else {
-            serviceBadge = `<span class="card-badge badge-danger" style="background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.4); font-weight:700; font-size:0.85rem; padding:6px 12px; display:inline-block;">⚙️ Remaining ${remainingToService.toLocaleString()} KM to service</span>`;
+            serviceBadge = `<span class="green-service-badge">⚙️ Remaining ${remainingToService.toLocaleString()} KM to reach 10,000 KM to get service</span>`;
+          }
+
+          let lastServiceFormatted = 'N/A';
+          if (v.last_service_date) {
+            let sDateStr = String(v.last_service_date);
+            if (sDateStr.includes('T')) sDateStr = sDateStr.split('T')[0];
+            lastServiceFormatted = sDateStr;
           }
 
           return `
@@ -2050,7 +2067,7 @@ class App {
 
               <div style="font-size:0.85rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:8px;">
                 <span>Tax Status: <strong>${v.tax_paid_status}</strong> (₹${v.tax_amount || 0})</span>
-                <span>Last Service: ${v.last_service_date || 'N/A'}</span>
+                <span>Last Service: <strong>${lastServiceFormatted}</strong></span>
               </div>
 
               <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
@@ -2066,7 +2083,7 @@ class App {
                 <button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.3);" onclick="app.openVehicleExpenseModal('Daily Fuel', ${v.id})">
                   ⛽ Daily Fuel
                 </button>
-                ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteVehicle(${v.id})">Delete</button>` : ''}
+                ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteVehicle(${v.id})">Delete</button>` : ''}
               </div>
             </div>
           `;
@@ -2079,8 +2096,9 @@ class App {
     const veh = this.vehicles.find(v => v.id == vehId);
     if (!veh) return;
     document.getElementById('vehKmsVehId').value = vehId;
-    document.getElementById('vehKmsVehName').value = `${veh.vehicle_name} (${veh.rc_number})`;
-    document.getElementById('vehKmsInput').value = veh.total_kms_driven || 0;
+    document.getElementById('vehKmsVehName').value = `${veh.vehicle_name} (${veh.rc_number}) — Current Odometer: ${parseInt(veh.total_kms_driven || 0).toLocaleString()} KM`;
+    document.getElementById('vehKmsInput').value = '';
+    document.getElementById('vehKmsInput').placeholder = 'Enter added KMs (e.g. 1000)';
     this.openModal('vehicleKmsModal');
   }
 
@@ -2349,14 +2367,9 @@ class App {
                   <td>${d.category === 'Sale' ? meta.seller_name : meta.buyer_name || 'N/A'}</td>
                   <td style="font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                   <td>
-                    <div class="masked-amount-wrapper">
-                      <span style="font-weight:700; font-family:monospace; font-size:1rem; color:#f59e0b;">
-                        ${isMasked ? 'XXXX.XX' : leftAmtStr}
-                      </span>
-                      <button class="eye-btn" onclick="app.toggleMaskAmount(${d.id})" title="Toggle View Left Amount">
-                        ${isMasked ? '👁️' : '🙈'}
-                      </button>
-                    </div>
+                    <span style="font-weight:700; font-family:monospace; font-size:1rem; color:#f59e0b;">
+                      ${isMasked ? 'XXXX.XX' : leftAmtStr}
+                    </span>
                   </td>
                   <td style="font-weight:700; color:#60a5fa;">₹ ${parseFloat(meta.right_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                   <td>
@@ -2367,8 +2380,11 @@ class App {
                     `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
                   </td>
                   <td>
-                    <div style="display:flex; gap:6px;">
-                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.85rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})" title="View Details & Documents">👁️ View</button>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.85rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})" title="View Details & Documents">View</button>
+                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3);" onclick="app.toggleMaskAmount(${d.id})" title="Toggle Show/Hide Left Amount">
+                        ${isMasked ? '👁️ Left' : '🙈 Left'}
+                      </button>
                       <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
                       ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
                     </div>
