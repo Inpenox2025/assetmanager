@@ -57,11 +57,6 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: "Missing required document fields (company_id, menu_key, category, doc_date)" });
       }
 
-      const todayStr = new Date().toISOString().split("T")[0];
-      if (doc_date < todayStr) {
-        return res.status(400).json({ error: "Document date cannot be in the past. It must be today or a future date." });
-      }
-
       const numCompId = parseInt(company_id);
       const numAmount = parseFloat(amount) || 0.0;
       const metaObj = JSON.stringify(metadata || {});

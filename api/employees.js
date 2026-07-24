@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { action, id, name, designation, salary, email, phone, demographic_details, date_joined, is_active, month_year, is_paid } = req.body || {};
+      const { action, id, name, designation, salary, email, phone, demographic_details, date_joined, is_active, month_year, is_paid, pf_amount, hra_amount, esi_amount, insurance_amount } = req.body || {};
 
       // Toggle Salary Paid / Unpaid Status
       if (action === "toggle_salary") {
@@ -56,9 +56,14 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: "Missing required employee details (name, designation, salary, date_joined)" });
       }
 
+      const pfVal = parseFloat(pf_amount) || 0.0;
+      const hraVal = parseFloat(hra_amount) || 0.0;
+      const esiVal = parseFloat(esi_amount) || 0.0;
+      const insVal = parseFloat(insurance_amount) || 0.0;
+
       const newEmp = await sql`
-        INSERT INTO employees (company_id, name, designation, salary, email, phone, demographic_details, date_joined, is_active)
-        VALUES (${companyId}, ${name}, ${designation}, ${parseFloat(salary)}, ${email || ''}, ${phone || ''}, ${demographic_details || ''}, ${date_joined}, ${is_active !== undefined ? Boolean(is_active) : true})
+        INSERT INTO employees (company_id, name, designation, salary, email, phone, demographic_details, date_joined, is_active, pf_amount, hra_amount, esi_amount, insurance_amount)
+        VALUES (${companyId}, ${name}, ${designation}, ${parseFloat(salary)}, ${email || ''}, ${phone || ''}, ${demographic_details || ''}, ${date_joined}, ${is_active !== undefined ? Boolean(is_active) : true}, ${pfVal}, ${hraVal}, ${esiVal}, ${insVal})
         RETURNING *
       `;
 

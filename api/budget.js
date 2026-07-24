@@ -118,12 +118,14 @@ module.exports = async function handler(req, res) {
             SELECT amount FROM documents
             WHERE company_id = ${row.company_id}
               AND doc_date   = ${row.budget_date}
-              AND menu_key IN ('itr','gst','office','vehicles','travel','advances','formalities')
+              AND (
+                menu_key IN ('itr','gst','office','vehicles','travel','advances','formalities')
+                OR (menu_key = 'bank' AND category IN ('EMI', 'Payment Receipts'))
+              )
           `;
           row.total_spent     = docs.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
           row.total_available = (parseFloat(row.set_amount) || 0) + (parseFloat(row.carried_over_amount) || 0);
           row.remaining_amount = row.total_available - row.total_spent;
-          // Ensure notes exists (in case column was added after existing rows)
           if (row.notes === undefined) row.notes = "";
         }
 
@@ -158,7 +160,10 @@ module.exports = async function handler(req, res) {
         SELECT amount FROM documents
         WHERE company_id = ${numCompId}
           AND doc_date = ${todayStr}
-          AND menu_key IN ('itr','gst','office','vehicles','travel','advances','formalities')
+          AND (
+            menu_key IN ('itr','gst','office','vehicles','travel','advances','formalities')
+            OR (menu_key = 'bank' AND category IN ('EMI', 'Payment Receipts'))
+          )
       `;
 
       const totalSpentToday = docsToday.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
@@ -174,7 +179,9 @@ module.exports = async function handler(req, res) {
           carried_over_amount: carriedOver,
           total_available: totalAvailable,
           total_spent: totalSpentToday,
-          remaining_amount: remainingToday
+          remaining_amount: remainingToday,
+          receipt_file_data: todayBudgets.length > 0 ? todayBudgets[0].receipt_file_data : null,
+          receipt_file_name: todayBudgets.length > 0 ? todayBudgets[0].receipt_file_name : null
         }
       });
     }
@@ -183,13 +190,15 @@ module.exports = async function handler(req, res) {
        POST — Set / update budget for a specific date
     ================================================================= */
     if (req.method === "POST") {
-      const { company_id, set_amount, budget_date, notes } = req.body || {};
+      const { company_id, set_amount, budget_date, notes, receipt_file_data, receipt_file_name } = req.body || {};
       if (!company_id) return res.status(400).json({ error: "company_id is required" });
 
       const numCompId  = parseInt(company_id);
       const numSetAmt  = parseFloat(set_amount) || 0;
       const targetDate = budget_date || todayStr;
       const notesVal   = notes || "";
+      const rData      = receipt_file_data || null;
+      const rName      = receipt_file_name || null;
 
       // Previous day carryover
       const prevBudgets = await sql`
@@ -204,23 +213,28 @@ module.exports = async function handler(req, res) {
         SELECT amount FROM documents
         WHERE company_id = ${numCompId}
           AND doc_date = ${targetDate}
-          AND menu_key IN ('itr','gst','office','vehicles','travel','advances','formalities')
+          AND (
+            menu_key IN ('itr','gst','office','vehicles','travel','advances','formalities')
+            OR (menu_key = 'bank' AND category IN ('EMI', 'Payment Receipts'))
+          )
       `;
       const totalSpent = docs.reduce((s, d) => s + (parseFloat(d.amount) || 0), 0);
       const remaining  = (numSetAmt + carriedOver) - totalSpent;
 
       const result = await sql`
         INSERT INTO daily_budgets
-          (company_id, budget_date, set_amount, carried_over_amount, total_spent, remaining_amount, notes)
+          (company_id, budget_date, set_amount, carried_over_amount, total_spent, remaining_amount, notes, receipt_file_data, receipt_file_name)
         VALUES
-          (${numCompId}, ${targetDate}, ${numSetAmt}, ${carriedOver}, ${totalSpent}, ${remaining}, ${notesVal})
+          (${numCompId}, ${targetDate}, ${numSetAmt}, ${carriedOver}, ${totalSpent}, ${remaining}, ${notesVal}, ${rData}, ${rName})
         ON CONFLICT (company_id, budget_date)
         DO UPDATE SET
           set_amount          = EXCLUDED.set_amount,
           carried_over_amount = EXCLUDED.carried_over_amount,
           total_spent         = EXCLUDED.total_spent,
           remaining_amount    = EXCLUDED.remaining_amount,
-          notes               = EXCLUDED.notes
+          notes               = EXCLUDED.notes,
+          receipt_file_data   = COALESCE(EXCLUDED.receipt_file_data, daily_budgets.receipt_file_data),
+          receipt_file_name   = COALESCE(EXCLUDED.receipt_file_name, daily_budgets.receipt_file_name)
         RETURNING *
       `;
 
@@ -234,11 +248,13 @@ module.exports = async function handler(req, res) {
        PUT — Edit an existing budget row by id
     ================================================================= */
     if (req.method === "PUT") {
-      const { id, set_amount, notes } = req.body || {};
+      const { id, set_amount, notes, receipt_file_data, receipt_file_name } = req.body || {};
       if (!id) return res.status(400).json({ error: "Budget entry id is required" });
 
       const numSetAmt = parseFloat(set_amount) || 0;
       const notesVal  = notes || "";
+      const rData     = receipt_file_data || null;
+      const rName     = receipt_file_name || null;
 
       const existing = await sql`SELECT * FROM daily_budgets WHERE id = ${parseInt(id)}`;
       if (!existing.length) return res.status(404).json({ error: "Budget entry not found" });
@@ -248,12 +264,22 @@ module.exports = async function handler(req, res) {
       const totalSpent  = parseFloat(row.total_spent) || 0;
       const remaining   = (numSetAmt + carriedOver) - totalSpent;
 
-      const updated = await sql`
-        UPDATE daily_budgets
-        SET set_amount = ${numSetAmt}, remaining_amount = ${remaining}, notes = ${notesVal}
-        WHERE id = ${parseInt(id)}
-        RETURNING *
-      `;
+      let updated;
+      if (rData && rName) {
+        updated = await sql`
+          UPDATE daily_budgets
+          SET set_amount = ${numSetAmt}, remaining_amount = ${remaining}, notes = ${notesVal}, receipt_file_data = ${rData}, receipt_file_name = ${rName}
+          WHERE id = ${parseInt(id)}
+          RETURNING *
+        `;
+      } else {
+        updated = await sql`
+          UPDATE daily_budgets
+          SET set_amount = ${numSetAmt}, remaining_amount = ${remaining}, notes = ${notesVal}
+          WHERE id = ${parseInt(id)}
+          RETURNING *
+        `;
+      }
 
       return res.status(200).json({ success: true, budget: updated[0] });
     }

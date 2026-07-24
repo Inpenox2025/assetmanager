@@ -268,12 +268,12 @@ class App {
     overlay && overlay.classList.remove('active');
   }
 
-  // Set min constraint on all date pickers to TODAY (Disallow past dates)
+  // Set date pickers to TODAY by default while allowing full back-date flexibility
   setupDatePickers() {
     const todayStr = new Date().toISOString().split('T')[0];
     const dateInputs = document.querySelectorAll('input[type="date"]');
     dateInputs.forEach(input => {
-      input.min = todayStr;
+      input.removeAttribute('min');
       if (!input.value) {
         input.value = todayStr;
       }
@@ -327,7 +327,7 @@ class App {
   updateHeaderCompany() {
     if (!this.currentCompany) return;
 
-    const defaultLogoSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>";
+    const defaultLogoSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42' viewBox='0 0 24 24' fill='none' stroke='%23eab308' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>";
     const logoSrc = this.currentCompany.logo_data || defaultLogoSvg;
 
     // ── Top header bar ──
@@ -759,25 +759,54 @@ class App {
         document.getElementById('budgetCarriedOver').innerText = `₹ ${parseFloat(this.budget.carried_over_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
         document.getElementById('budgetSpentToday').innerText = `₹ ${parseFloat(this.budget.total_spent || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
         document.getElementById('budgetRemainingToday').innerText = `₹ ${parseFloat(this.budget.remaining_amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
+
+        const receiptCard = document.getElementById('budgetReceiptBadgeCard');
+        const receiptLink = document.getElementById('budgetTodayReceiptLink');
+        if (receiptCard && receiptLink) {
+          if (this.budget.receipt_file_data) {
+            receiptCard.style.display = 'block';
+            receiptLink.href = this.budget.receipt_file_data;
+            receiptLink.download = this.budget.receipt_file_name || 'budget_receipt';
+          } else {
+            receiptCard.style.display = 'none';
+          }
+        }
       }
     } catch (e) {
       console.error(e);
     }
   }
 
+  async handleBudgetWidgetReceiptSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    this.pendingBudgetWidgetReceipt = {
+      name: file.name,
+      data: await this.readFileAsDataURL(file)
+    };
+    const label = document.getElementById('widgetReceiptFileLabel');
+    if (label) label.innerText = file.name.length > 12 ? file.name.substring(0, 10) + '...' : file.name;
+  }
+
   async handleSetBudget(e) {
     e.preventDefault();
     const amount = parseFloat(document.getElementById('setBudgetInput').value) || 0;
+    const rData = this.pendingBudgetWidgetReceipt ? this.pendingBudgetWidgetReceipt.data : null;
+    const rName = this.pendingBudgetWidgetReceipt ? this.pendingBudgetWidgetReceipt.name : null;
+
     try {
       const res = await fetch('/api/budget', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company_id: this.currentCompany.id, set_amount: amount })
+        body: JSON.stringify({ company_id: this.currentCompany.id, set_amount: amount, receipt_file_data: rData, receipt_file_name: rName })
       });
       const data = await res.json();
       if (data.success) {
         this.showToast(`Daily Maintenance budget set to ₹ ${amount.toLocaleString('en-IN')}`);
         document.getElementById('setBudgetInput').value = '';
+        this.pendingBudgetWidgetReceipt = null;
+        const label = document.getElementById('widgetReceiptFileLabel');
+        if (label) label.innerText = 'Receipt';
         await this.loadBudget();
       }
     } catch (err) {
@@ -869,7 +898,7 @@ class App {
         this.renderVehiclesMenu();
         break;
       case 'travel':
-        this.renderGenericMenu('Menu 7: Travelling Allowance', 'travel', ['Flight Ticket', 'Train Ticket', 'Bus Ticket', 'Other Travel'], false);
+        this.renderGenericMenu('Menu 7: Travelling Allowance', 'travel', ['Flight Ticket', 'Train Ticket', 'Bus Ticket', 'Cab', 'Other Travel'], false);
         break;
       case 'property':
         this.renderPropertyMenu();
@@ -993,6 +1022,10 @@ class App {
               <input type="number" step="0.01" min="0" id="budgetModalAmount" class="form-input" placeholder="e.g. 50000" required>
             </div>
             <div class="form-group">
+              <label class="form-label">Attach Receipt / Document (Optional)</label>
+              <input type="file" id="budgetModalReceiptFile" accept="image/*,.pdf,.doc,.docx" class="form-input">
+            </div>
+            <div class="form-group">
               <label class="form-label">Notes (optional)</label>
               <input type="text" id="budgetModalNotes" class="form-input" placeholder="e.g. Festival season budget">
             </div>
@@ -1105,7 +1138,11 @@ class App {
               <span style="font-size:0.7rem; color:var(--text-muted);">${pct}% used</span>
             </div>
           </td>
-          <td style="font-size:0.82rem; color:var(--text-muted); max-width:140px; word-break:break-word;">${r.notes || '<span style="color:var(--text-dim);">—</span>'}</td>
+          <td style="font-size:0.82rem; color:var(--text-muted); max-width:140px; word-break:break-word;">
+            ${r.notes || ''}
+            ${r.receipt_file_data ? `<div style="margin-top:2px;"><a href="${r.receipt_file_data}" download="${r.receipt_file_name || 'receipt'}" class="doc-pill" style="font-size:0.75rem;">📄 Receipt</a></div>` : ''}
+            ${(!r.notes && !r.receipt_file_data) ? '<span style="color:var(--text-dim);">—</span>' : ''}
+          </td>
           <td>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
               <button class="action-btn secondary" style="padding:4px 10px; font-size:0.78rem;" onclick="app.editBudgetEntry(${r.id})">✏️ Edit</button>
@@ -1180,12 +1217,20 @@ class App {
     const date      = document.getElementById('budgetModalDate')?.value;
     const amount    = parseFloat(document.getElementById('budgetModalAmount')?.value) || 0;
     const notes     = document.getElementById('budgetModalNotes')?.value || '';
+    const fileInput = document.getElementById('budgetModalReceiptFile');
+
+    let rData = null;
+    let rName = null;
+    if (fileInput && fileInput.files[0]) {
+      rName = fileInput.files[0].name;
+      rData = await this.readFileAsDataURL(fileInput.files[0]);
+    }
 
     const isEditing = Boolean(editId);
     const method    = isEditing ? 'PUT' : 'POST';
     const payload   = isEditing
-      ? { id: parseInt(editId), set_amount: amount, notes }
-      : { company_id: companyId, budget_date: date, set_amount: amount, notes };
+      ? { id: parseInt(editId), set_amount: amount, notes, receipt_file_data: rData, receipt_file_name: rName }
+      : { company_id: companyId, budget_date: date, set_amount: amount, notes, receipt_file_data: rData, receipt_file_name: rName };
 
     try {
       const res  = await fetch('/api/budget', {
@@ -1197,7 +1242,6 @@ class App {
       if (data.success) {
         this.showToast(isEditing ? 'Budget entry updated!' : 'Budget set successfully!');
         this.closeModal('budgetEntryModal');
-        // Refresh today's budget bar if date is today
         const todayStr = new Date().toISOString().split('T')[0];
         if (!date || date === todayStr) await this.loadBudget();
         await this.loadBudgetHistory();
@@ -1240,6 +1284,21 @@ class App {
 
     const recentDocs = [...this.documents].slice(0, 5);
 
+    // ── 5:00 PM Daily Expense Report Calculation ──
+    const now = new Date();
+    const currentHour = now.getHours();
+    const todayStr = now.toISOString().split('T')[0];
+    const isAfter5PM = currentHour >= 17 || this.force5PMReportPreview;
+
+    const todayDocs = this.documents.filter(d => {
+      let dDate = d.doc_date;
+      if (dDate && dDate.includes('T')) dDate = dDate.split('T')[0];
+      return dDate === todayStr;
+    });
+
+    const todayExpensesTotal = todayDocs.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+    const todayRemainingBalance = parseFloat(this.budget.remaining_amount || 0);
+
     main.innerHTML = `
       <div class="view-header">
         <h2 class="view-title">📈 Executive Dashboard Overview</h2>
@@ -1248,6 +1307,71 @@ class App {
             ➕ Add Entry & Upload Docs
           </button>
         </div>
+      </div>
+
+      <!-- Evening 5:00 PM Daily Expenses Financial Report Card -->
+      <div style="background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95)); border: 1px solid ${isAfter5PM ? '#eab308' : 'var(--border-color)'}; border-radius: var(--radius-lg); padding: 20px; margin-bottom: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: relative; overflow: hidden;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:12px;">
+          <div>
+            <div style="font-size:1.15rem; font-weight:800; color:#fbbf24; display:flex; align-items:center; gap:8px;">
+              📊 Evening 5:00 PM Daily Financial Report ${isAfter5PM ? '<span class="card-badge badge-warning" style="background:#eab308; color:#0f172a; font-weight:800;">📢 GENERATED AT 5:00 PM</span>' : '<span class="card-badge badge-info">🕒 SCHEDULED AT 5:00 PM DAILY</span>'}
+            </div>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;">
+              ${todayStr} — Total expenses, itemized spending breakdown, and remaining daily balance.
+            </div>
+          </div>
+          <button class="action-btn secondary" style="padding:6px 12px; font-size:0.8rem;" onclick="app.toggle5PMReportPreview()">
+            ${this.force5PMReportPreview ? '✖ Close Preview' : '👁️ Preview 5 PM Report'}
+          </button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:16px;">
+          <div style="background:rgba(15,23,42,0.7); border-radius:var(--radius-md); padding:14px; border-left:4px solid #f87171;">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Today's Total Expenses</div>
+            <div style="font-size:1.4rem; font-weight:800; color:#f87171; margin-top:4px;">₹ ${todayExpensesTotal.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+          </div>
+          <div style="background:rgba(15,23,42,0.7); border-radius:var(--radius-md); padding:14px; border-left:4px solid #34d399;">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Remaining Daily Balance</div>
+            <div style="font-size:1.4rem; font-weight:800; color:#34d399; margin-top:4px;">₹ ${todayRemainingBalance.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+          </div>
+          <div style="background:rgba(15,23,42,0.7); border-radius:var(--radius-md); padding:14px; border-left:4px solid #60a5fa;">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Total Transactions Today</div>
+            <div style="font-size:1.4rem; font-weight:800; color:#60a5fa; margin-top:4px;">${todayDocs.length} Entries</div>
+          </div>
+        </div>
+
+        ${isAfter5PM ? `
+          <h4 style="color:white; font-size:0.92rem; margin-bottom:8px; font-weight:700;">Itemized List of Today's Expenditures:</h4>
+          <div class="table-container" style="max-height:220px; overflow-y:auto; margin:0;">
+            <table class="custom-table" style="font-size:0.82rem;">
+              <thead>
+                <tr>
+                  <th>Time / Date</th>
+                  <th>Module</th>
+                  <th>Category</th>
+                  <th>Description / Purpose</th>
+                  <th>Amount (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${todayDocs.length === 0 ? `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:16px;">No expenses logged today yet.</td></tr>` : ''}
+                ${todayDocs.map(d => `
+                  <tr>
+                    <td>${d.doc_date ? d.doc_date.split('T')[0] : todayStr}</td>
+                    <td><span class="card-badge badge-info">${d.menu_key}</span></td>
+                    <td><span class="card-badge badge-warning">${d.category}</span></td>
+                    <td>${d.metadata?.property_name || d.metadata?.person_name || d.metadata?.bank_name || d.metadata?.vehicle_name || d.metadata?.purpose || d.category}</td>
+                    <td style="color:#f87171; font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : `
+          <div style="background:rgba(234,179,8,0.1); border:1px dashed rgba(234,179,8,0.4); border-radius:var(--radius-md); padding:12px; text-align:center; font-size:0.85rem; color:#fef08a;">
+            ⏰ Official 5:00 PM Evening Financial Summary will automatically expand here at 5:00 PM today!
+          </div>
+        `}
       </div>
 
       <!-- KPI Stat Cards Grid -->
@@ -1510,11 +1634,16 @@ class App {
     `;
   }
 
+  toggle5PMReportPreview() {
+    this.force5PMReportPreview = !this.force5PMReportPreview;
+    this.renderDashboard();
+  }
+
   /* Menu 4: Office Menu */
   renderOfficeMenu() {
     const main = document.getElementById('mainContent');
     const docs = this.documents.filter(d => d.menu_key === 'office');
-    const categories = ['Rent', 'Electricity Bill', 'Maintenance', 'Guest Maintenance'];
+    const categories = ['Rent', 'Electricity Bill', 'Maintenance', 'Housekeeping', 'Guest Vehicle', 'Guest Maintenance'];
 
     main.innerHTML = `
       <div class="view-header">
@@ -1604,7 +1733,8 @@ class App {
               <th>Employee Name</th>
               <th>Designation</th>
               <th>Contact Details</th>
-              <th>Monthly Salary</th>
+              <th>Monthly Salary (₹)</th>
+              <th>PF / HRA / ESI / Insurance (₹)</th>
               <th>Joined Date</th>
               <th>Status</th>
               <th>Salary Paid Status (${currentMonthYear})</th>
@@ -1612,16 +1742,27 @@ class App {
             </tr>
           </thead>
           <tbody>
-            ${this.employees.length === 0 ? `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:30px;">No employees registered yet.</td></tr>` : ''}
+            ${this.employees.length === 0 ? `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">No employees registered yet.</td></tr>` : ''}
             ${this.employees.map(emp => {
               const currentPayment = (emp.payments || []).find(p => p.month_year === currentMonthYear);
               const isPaid = currentPayment ? currentPayment.is_paid : false;
+              const pf = parseFloat(emp.pf_amount || 0);
+              const hra = parseFloat(emp.hra_amount || 0);
+              const esi = parseFloat(emp.esi_amount || 0);
+              const ins = parseFloat(emp.insurance_amount || 0);
+
               return `
                 <tr>
                   <td><strong>${emp.name}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${emp.demographic_details || ''}</span></td>
                   <td>${emp.designation}</td>
                   <td><div>${emp.phone}</div><div style="font-size:0.8rem; color:var(--text-muted);">${emp.email}</div></td>
                   <td style="font-weight:700;">₹ ${parseFloat(emp.salary || 0).toLocaleString('en-IN')}</td>
+                  <td>
+                    <div style="font-size:0.76rem; color:var(--text-muted); display:flex; flex-direction:column; gap:2px;">
+                      <span>PF: <strong style="color:#60a5fa;">₹${pf.toLocaleString('en-IN')}</strong> | HRA: <strong style="color:#34d399;">₹${hra.toLocaleString('en-IN')}</strong></span>
+                      <span>ESI: <strong style="color:#fbbf24;">₹${esi.toLocaleString('en-IN')}</strong> | Ins: <strong style="color:#a78bfa;">₹${ins.toLocaleString('en-IN')}</strong></span>
+                    </div>
+                  </td>
                   <td>${emp.date_joined}</td>
                   <td>
                     <button class="action-btn secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="app.toggleEmployeeActive(${emp.id}, ${!emp.is_active})">
@@ -1688,6 +1829,10 @@ class App {
       name: document.getElementById('empName').value.trim(),
       designation: document.getElementById('empDesignation').value.trim(),
       salary: parseFloat(document.getElementById('empSalary').value) || 0,
+      pf_amount: parseFloat(document.getElementById('empPf')?.value) || 0,
+      hra_amount: parseFloat(document.getElementById('empHra')?.value) || 0,
+      esi_amount: parseFloat(document.getElementById('empEsi')?.value) || 0,
+      insurance_amount: parseFloat(document.getElementById('empInsurance')?.value) || 0,
       email: document.getElementById('empEmail').value.trim(),
       phone: document.getElementById('empPhone').value.trim(),
       date_joined: document.getElementById('empJoined').value,
@@ -1774,11 +1919,17 @@ class App {
                 <span>Last Service: ${v.last_service_date || 'N/A'}</span>
               </div>
 
-              <div style="display:flex; gap:10px; margin-top:8px;">
-                <button class="action-btn" style="padding:6px 12px; font-size:0.85rem; flex:1;" onclick="app.openVehicleModal('service', ${v.id})">
+              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;">
+                <button class="action-btn" style="padding:6px 10px; font-size:0.8rem; flex:1;" onclick="app.openVehicleModal('service', ${v.id})">
                   🔧 Log Service / KMs
                 </button>
-                ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:6px 10px; font-size:0.85rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteVehicle(${v.id})">Delete</button>` : ''}
+                <button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(234,179,8,0.2); color:#fbbf24; border:1px solid rgba(234,179,8,0.3);" onclick="app.openVehicleExpenseModal('Vehicle EMI', ${v.id})">
+                  💳 Log EMI
+                </button>
+                <button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.3);" onclick="app.openVehicleExpenseModal('Daily Fuel', ${v.id})">
+                  ⛽ Daily Fuel
+                </button>
+                ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteVehicle(${v.id})">Delete</button>` : ''}
               </div>
             </div>
           `;
@@ -1884,6 +2035,73 @@ class App {
     }
   }
 
+  openVehicleExpenseModal(category, vehId) {
+    const veh = this.vehicles.find(v => v.id == vehId);
+    if (!veh) return;
+    document.getElementById('vehExpVehId').value = vehId;
+    document.getElementById('vehExpVehName').value = `${veh.vehicle_name} (${veh.rc_number})`;
+    document.getElementById('vehExpCategory').value = category;
+    document.getElementById('vehExpModalTitle').innerText = `Log ${category} for ${veh.vehicle_name}`;
+    document.getElementById('vehExpDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('vehExpAmount').value = '';
+    document.getElementById('vehExpNotes').value = '';
+    document.getElementById('vehExpReceiptFile').value = '';
+    this.openModal('vehicleExpenseModal');
+    this.setupDatePickers();
+  }
+
+  async handleVehicleExpenseSubmit(e) {
+    e.preventDefault();
+    const vehId = document.getElementById('vehExpVehId').value;
+    const veh = this.vehicles.find(v => v.id == vehId);
+    const category = document.getElementById('vehExpCategory').value;
+    const date = document.getElementById('vehExpDate').value;
+    const amount = parseFloat(document.getElementById('vehExpAmount').value) || 0;
+    const notes = document.getElementById('vehExpNotes').value.trim();
+    const fileInput = document.getElementById('vehExpReceiptFile');
+
+    let files = [];
+    if (fileInput && fileInput.files[0]) {
+      const dataUrl = await this.readFileAsDataURL(fileInput.files[0]);
+      files.push({
+        name: fileInput.files[0].name,
+        type: fileInput.files[0].type,
+        size: fileInput.files[0].size,
+        data: dataUrl
+      });
+    }
+
+    const payload = {
+      company_id: this.currentCompany.id,
+      menu_key: 'vehicles',
+      category: category,
+      doc_date: date,
+      amount: amount,
+      metadata: { vehicle_id: vehId, vehicle_name: veh ? veh.vehicle_name : '', rc_number: veh ? veh.rc_number : '', notes: notes },
+      files: files
+    };
+
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(`${category} of ₹ ${amount.toLocaleString()} logged & deducted from daily budget!`);
+        this.closeModal('vehicleExpenseModal');
+        await this.loadDocuments();
+        await this.loadBudget();
+        this.renderVehiclesMenu();
+      } else {
+        alert(data.error || 'Failed to log vehicle expense');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   async deleteVehicle(id) {
     if (!this.isSuperAdmin()) {
       alert('Access Denied: Only Super Admin can delete vehicles.');
@@ -1921,8 +2139,8 @@ class App {
             <tr>
               <th>Date</th>
               <th>Mode</th>
-              <th>Property Name</th>
-              <th>Property Address</th>
+              <th>Property Name & Survey/Passbook</th>
+              <th>Extent / Area</th>
               <th>Seller / Buyer</th>
               <th>Total Amount (₹)</th>
               <th>Left Amount (₹) [Masked]</th>
@@ -1942,8 +2160,14 @@ class App {
                 <tr>
                   <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
                   <td><span class="${d.category === 'Sale' ? 'card-badge badge-success' : 'card-badge badge-warning'}">${d.category}</span></td>
-                  <td><strong>${meta.property_name || 'N/A'}</strong></td>
-                  <td>${meta.address || 'N/A'}</td>
+                  <td>
+                    <strong>${meta.property_name || 'N/A'}</strong>
+                    <div style="font-size:0.76rem; color:var(--text-muted); margin-top:2px;">
+                      ${meta.survey_no ? `Sy.No: <strong>${meta.survey_no}</strong> ` : ''}
+                      ${meta.passbook_no ? `| PB: <strong>${meta.passbook_no}</strong>` : ''}
+                    </div>
+                  </td>
+                  <td>${meta.extent || 'N/A'}</td>
                   <td>${d.category === 'Sale' ? meta.seller_name : meta.buyer_name || 'N/A'}</td>
                   <td style="font-weight:700;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
                   <td>
@@ -1966,7 +2190,7 @@ class App {
                   </td>
                   <td>
                     <div style="display:flex; gap:6px;">
-                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})">View</button>
+                      <button class="action-btn secondary" style="padding:4px 10px; font-size:0.85rem;" onclick="app.viewDocument(${d.id}, ${d.files && d.files[0] ? d.files[0].id : 0})" title="View Details & Documents">👁️ View</button>
                       <button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="app.editDoc(${d.id})">Edit</button>
                       ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
                     </div>
@@ -2071,6 +2295,20 @@ class App {
             <input type="text" id="propAddress" class="form-input" placeholder="e.g. MG Road, Bengaluru">
           </div>
         </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+          <div class="form-group">
+            <label class="form-label">Extent / Area</label>
+            <input type="text" id="propExtent" class="form-input" placeholder="e.g. 1200 Sq Ft / 2 Acres">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Survey Number</label>
+            <input type="text" id="propSurveyNo" class="form-input" placeholder="e.g. Sy. No 145/2">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Passbook Number</label>
+            <input type="text" id="propPassbookNo" class="form-input" placeholder="e.g. PB-987654">
+          </div>
+        </div>
         <div class="form-group">
           <label class="form-label">Seller / Buyer Name *</label>
           <input type="text" id="propParty" class="form-input" placeholder="e.g. Apex Builders" required>
@@ -2172,6 +2410,9 @@ class App {
     } else if (doc.menu_key === 'property') {
       if (document.getElementById('propName')) document.getElementById('propName').value = meta.property_name || '';
       if (document.getElementById('propAddress')) document.getElementById('propAddress').value = meta.address || '';
+      if (document.getElementById('propExtent')) document.getElementById('propExtent').value = meta.extent || '';
+      if (document.getElementById('propSurveyNo')) document.getElementById('propSurveyNo').value = meta.survey_no || '';
+      if (document.getElementById('propPassbookNo')) document.getElementById('propPassbookNo').value = meta.passbook_no || '';
       if (document.getElementById('propParty')) document.getElementById('propParty').value = meta.seller_name || meta.buyer_name || '';
       if (document.getElementById('propLeftAmt')) document.getElementById('propLeftAmt').value = meta.left_amount || 0;
       if (document.getElementById('propRightAmt')) document.getElementById('propRightAmt').value = meta.right_amount || 0;
@@ -2277,6 +2518,9 @@ class App {
     } else if (modalMenuKey === 'property') {
       metadata.property_name = document.getElementById('propName')?.value || '';
       metadata.address = document.getElementById('propAddress')?.value || '';
+      metadata.extent = document.getElementById('propExtent')?.value || '';
+      metadata.survey_no = document.getElementById('propSurveyNo')?.value || '';
+      metadata.passbook_no = document.getElementById('propPassbookNo')?.value || '';
       metadata.seller_name = document.getElementById('propParty')?.value || '';
       metadata.buyer_name = document.getElementById('propParty')?.value || '';
       metadata.left_amount = parseFloat(document.getElementById('propLeftAmt')?.value) || 0;
@@ -2306,6 +2550,9 @@ class App {
       files: this.pendingUploadFiles.map(f => ({ name: f.name, type: f.type, size: f.size, data: f.data }))
     };
 
+    const submitBtn = document.getElementById('docSubmitBtn');
+    if (submitBtn) submitBtn.disabled = true;
+
     try {
       const res = await fetch('/api/documents', {
         method: method,
@@ -2330,6 +2577,8 @@ class App {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   }
 

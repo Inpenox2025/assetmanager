@@ -88,9 +88,10 @@ module.exports = async function handler(req, res) {
         CONSTRAINT company_date_uniq UNIQUE(company_id, budget_date)
       )
     `;
-    // Safely add notes column to existing tables
+    // Safely add notes & receipt columns to existing daily_budgets table
     await sql`ALTER TABLE daily_budgets ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''`;
-
+    await sql`ALTER TABLE daily_budgets ADD COLUMN IF NOT EXISTS receipt_file_data TEXT`;
+    await sql`ALTER TABLE daily_budgets ADD COLUMN IF NOT EXISTS receipt_file_name VARCHAR(255)`;
 
     // 3. Documents Table
     await sql`
@@ -132,9 +133,19 @@ module.exports = async function handler(req, res) {
         demographic_details TEXT,
         date_joined DATE NOT NULL,
         is_active BOOLEAN DEFAULT TRUE,
+        pf_amount DECIMAL(12,2) DEFAULT 0.00,
+        hra_amount DECIMAL(12,2) DEFAULT 0.00,
+        esi_amount DECIMAL(12,2) DEFAULT 0.00,
+        insurance_amount DECIMAL(12,2) DEFAULT 0.00,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `;
+
+    // Safely add missing columns to existing employees table
+    await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS pf_amount DECIMAL(12,2) DEFAULT 0.00`;
+    await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS hra_amount DECIMAL(12,2) DEFAULT 0.00`;
+    await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS esi_amount DECIMAL(12,2) DEFAULT 0.00`;
+    await sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS insurance_amount DECIMAL(12,2) DEFAULT 0.00`;
 
     // 6. Salary Payments Table
     await sql`

@@ -87,7 +87,7 @@
 
       <div class="header-brand">
         <img id="headerCompanyLogo"
-          src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>"
+          src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42' viewBox='0 0 24 24' fill='none' stroke='%23eab308' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>"
           class="company-logo-img" alt="Company Logo">
         <div class="company-info">
           <div class="company-name">
@@ -127,10 +127,18 @@
           <span class="budget-label">Remaining Balance Today</span>
           <span class="budget-value remaining" id="budgetRemainingToday">₹ 0.00</span>
         </div>
+        <div class="budget-card" id="budgetReceiptBadgeCard" style="display:none;">
+          <span class="budget-label">Attached Receipt</span>
+          <a id="budgetTodayReceiptLink" href="#" target="_blank" class="doc-pill" style="margin-top:4px; font-size:0.8rem; display:inline-flex;">📄 View Receipt</a>
+        </div>
       </div>
-      <form class="set-budget-form" onsubmit="app.handleSetBudget(event)">
+      <form class="set-budget-form" onsubmit="app.handleSetBudget(event)" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="number" step="0.01" min="0" id="setBudgetInput" class="budget-input" placeholder="Set Budget ₹"
           required>
+        <label style="cursor:pointer; background:rgba(30,41,59,0.8); border:1px solid var(--border-color); padding:6px 10px; border-radius:var(--radius-md); font-size:0.8rem; color:var(--text-muted); display:inline-flex; align-items:center; gap:4px;" title="Upload Receipt (Optional)">
+          📎 <span id="widgetReceiptFileLabel">Receipt</span>
+          <input type="file" id="budgetWidgetReceiptInput" accept="image/*,.pdf,.doc,.docx" style="display:none;" onchange="app.handleBudgetWidgetReceiptSelect(event)">
+        </label>
         <button type="submit" class="action-btn">Set Maintenance</button>
       </form>
     </div>
@@ -146,7 +154,7 @@
         <!-- Company Branding Header inside Sidebar -->
         <div class="sidebar-company-header">
           <img id="sidebarCompanyLogo"
-            src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>"
+            src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24' fill='none' stroke='%23eab308' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='14' rx='2' ry='2'></rect><path d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'></path></svg>"
             class="sidebar-logo-img" alt="Company Logo">
           <div class="sidebar-company-info">
             <div class="sidebar-company-name" id="sidebarCompanyName">Company Name</div>
@@ -387,9 +395,9 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Date (Current or Future Date Only) *</label>
+            <label class="form-label">Date *</label>
             <input type="date" id="docDateInput" class="form-input" required>
-            <span class="date-hint">⚠️ Date defaults to today. Past dates are strictly disallowed.</span>
+            <span class="date-hint">📅 Back-dating supported (defaults to today).</span>
           </div>
 
           <!-- Dynamic Menu Specific Input Fields -->
@@ -449,7 +457,7 @@
             <div class="form-group">
               <label class="form-label">Service Date *</label>
               <input type="date" id="vehServiceDate" class="form-input">
-              <span class="date-hint">⚠️ Current or future date only.</span>
+              <span class="date-hint">📅 Back-dating supported.</span>
             </div>
             <div class="form-group">
               <label class="form-label">Service Amount (₹) - Deducted from Maintenance</label>
@@ -482,11 +490,49 @@
       </div>
     </div>
 
+    <!-- Vehicle Expense Log (EMI / Daily Fuel) Modal -->
+    <div class="modal-overlay" id="vehicleExpenseModal">
+      <div class="modal-card" style="max-width: 500px;">
+        <div class="modal-header">
+          <h3 class="modal-title" id="vehExpModalTitle">Log Vehicle Expense</h3>
+          <button class="modal-close" onclick="app.closeModal('vehicleExpenseModal')">&times;</button>
+        </div>
+        <form id="vehicleExpenseForm" onsubmit="app.handleVehicleExpenseSubmit(event)">
+          <input type="hidden" id="vehExpVehId" value="">
+          <input type="hidden" id="vehExpCategory" value="Daily Fuel">
+          <div class="form-group">
+            <label class="form-label">Vehicle Name</label>
+            <input type="text" id="vehExpVehName" class="form-input" readonly style="background:rgba(15,23,42,0.6); color:var(--text-muted);">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date *</label>
+            <input type="date" id="vehExpDate" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" id="vehExpAmountLabel">Amount (₹) - Deducted from Daily Maintenance *</label>
+            <input type="number" step="0.01" min="0.01" id="vehExpAmount" class="form-input" placeholder="e.g. 1500" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fuel Station / EMI Notes (Optional)</label>
+            <input type="text" id="vehExpNotes" class="form-input" placeholder="e.g. Shell Petrol Bunk / Monthly EMI">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Attach Receipt / Document (Optional)</label>
+            <input type="file" id="vehExpReceiptFile" accept="image/*,.pdf,.doc,.docx" class="form-input">
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+            <button type="button" class="action-btn secondary" onclick="app.closeModal('vehicleExpenseModal')">Cancel</button>
+            <button type="submit" class="action-btn" id="vehExpSubmitBtn">Save & Deduct Budget</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Employee CRUD Modal -->
     <div class="modal-overlay" id="employeeModal">
       <div class="modal-card">
         <div class="modal-header">
-          <h3 class="modal-title">Employee HR Details</h3>
+          <h3 class="modal-title">Employee HR & Salary Components</h3>
           <button class="modal-close" onclick="app.closeModal('employeeModal')">&times;</button>
         </div>
         <form onsubmit="app.handleEmployeeSubmit(event)">
@@ -499,9 +545,30 @@
             <input type="text" id="empDesignation" class="form-input" required>
           </div>
           <div class="form-group">
-            <label class="form-label">Monthly Salary (₹) *</label>
+            <label class="form-label">Gross Monthly Salary (₹) *</label>
             <input type="number" step="0.01" id="empSalary" class="form-input" required>
           </div>
+
+          <!-- HR Salary Breakdown Inputs -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:rgba(30,41,59,0.5); padding:12px; border-radius:var(--radius-md); border:1px solid var(--border-color); margin-bottom:12px;">
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">PF Amount (₹)</label>
+              <input type="number" step="0.01" id="empPf" class="form-input" placeholder="0.00">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">HRA Amount (₹)</label>
+              <input type="number" step="0.01" id="empHra" class="form-input" placeholder="0.00">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">ESI Amount (₹)</label>
+              <input type="number" step="0.01" id="empEsi" class="form-input" placeholder="0.00">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label class="form-label">Insurance Amount (₹)</label>
+              <input type="number" step="0.01" id="empInsurance" class="form-input" placeholder="0.00">
+            </div>
+          </div>
+
           <div class="form-group">
             <label class="form-label">Email</label>
             <input type="email" id="empEmail" class="form-input">

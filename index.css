@@ -133,7 +133,8 @@ html, body {
 .company-logo-img {
   width: 36px; height: 36px; flex-shrink: 0;
   border-radius: var(--radius-md); object-fit: cover;
-  background: var(--surface-bg); border: 1px solid var(--border-highlight);
+  background: var(--surface-bg); border: 1px solid #eab308;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.3);
 }
 
 .company-info { display: flex; flex-direction: column; min-width: 0; }
