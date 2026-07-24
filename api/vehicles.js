@@ -37,6 +37,7 @@ module.exports = async function handler(req, res) {
         const veh = vehs[0];
         const currentKms = veh.total_kms_driven || 0;
         const sAmt = parseFloat(service_amount) || 0;
+        const filesArr = req.body.files || [];
 
         // Reset service baseline: set kms_at_last_service = currentKms, last_service_date = service_date
         await sql`
@@ -47,16 +48,25 @@ module.exports = async function handler(req, res) {
           WHERE id = ${id}
         `;
 
+        // Create document entry under 'vehicles' category 'Vehicle Service' so amount is deducted from daily budget
+        const docRes = await sql`
+          INSERT INTO documents (company_id, menu_key, category, amount, doc_date, metadata)
+          VALUES (${companyId}, 'vehicles', 'Vehicle Service', ${sAmt}, ${service_date}, ${JSON.stringify({ vehicle_id: id, vehicle_name: veh.vehicle_name, rc_number: veh.rc_number, notes: description || '' })})
+          RETURNING id
+        `;
+
+        const newDocId = docRes[0].id;
+        for (const file of filesArr) {
+          await sql`
+            INSERT INTO document_files (document_id, file_name, file_type, file_size, file_data)
+            VALUES (${newDocId}, ${file.name}, ${file.type || 'application/pdf'}, ${file.size || 0}, ${file.data})
+          `;
+        }
+
         // Log Service History Entry
         await sql`
           INSERT INTO vehicle_service_logs (vehicle_id, service_date, service_amount, kms_driven, document_id)
-          VALUES (${id}, ${service_date}, ${sAmt}, ${currentKms}, ${document_id || null})
-        `;
-
-        // Create document entry under 'vehicles' category 'Vehicle Service' so amount is deducted from daily budget
-        await sql`
-          INSERT INTO documents (company_id, menu_key, category, amount, doc_date, metadata)
-          VALUES (${companyId}, 'vehicles', 'Vehicle Service', ${sAmt}, ${service_date}, ${JSON.stringify({ vehicle_id: id, vehicle_name: veh.vehicle_name, rc_number: veh.rc_number, notes: description || '' })})
+          VALUES (${id}, ${service_date}, ${sAmt}, ${currentKms}, ${newDocId})
         `;
 
         return res.status(200).json({

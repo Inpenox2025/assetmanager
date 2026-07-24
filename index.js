@@ -2053,6 +2053,16 @@ class App {
             lastServiceFormatted = sDateStr;
           }
 
+          // Filter logged expenses and document entries specific to this vehicle
+          const vehDocs = this.documents.filter(d =>
+            d.menu_key === 'vehicles' &&
+            (
+              (d.metadata && String(d.metadata.vehicle_id) === String(v.id)) ||
+              (d.metadata && d.metadata.rc_number === v.rc_number) ||
+              (d.metadata && d.metadata.vehicle_name === v.vehicle_name)
+            )
+          );
+
           return `
             <div class="data-card">
               <div class="card-header">
@@ -2070,7 +2080,7 @@ class App {
                 <span>Last Service: <strong>${lastServiceFormatted}</strong></span>
               </div>
 
-              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
+              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; margin-bottom:14px;">
                 <button class="action-btn" style="padding:6px 10px; font-size:0.8rem; background:linear-gradient(135deg, #4f46e5, #4338ca);" onclick="app.openVehicleModal('service', ${v.id})">
                   🔧 Log Service
                 </button>
@@ -2084,6 +2094,54 @@ class App {
                   ⛽ Daily Fuel
                 </button>
                 ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteVehicle(${v.id})">Delete</button>` : ''}
+              </div>
+
+              <!-- Logged Expenses & Attached Documents History for this vehicle -->
+              <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:12px; margin-top:10px;">
+                <div style="font-size:0.88rem; font-weight:700; color:#fbbf24; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                  📋 Logged Expenses & Document History (${vehDocs.length} Entries)
+                </div>
+                ${vehDocs.length === 0 ? `
+                  <div style="font-size:0.82rem; color:var(--text-muted); padding:6px 0;">No service, EMI, or fuel receipts logged yet.</div>
+                ` : `
+                  <div class="table-container" style="margin:0; overflow-x:auto;">
+                    <table class="custom-table" style="font-size:0.8rem;">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Category</th>
+                          <th>Notes / Purpose</th>
+                          <th>Amount (₹)</th>
+                          <th>Attached Files</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${vehDocs.map(d => `
+                          <tr>
+                            <td>${d.doc_date ? d.doc_date.split('T')[0] : ''}</td>
+                            <td><span class="card-badge badge-warning">${d.category}</span></td>
+                            <td>${d.metadata?.notes || d.metadata?.description || d.metadata?.purpose || '—'}</td>
+                            <td style="font-weight:700; color:#f87171;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                            <td>
+                              ${(d.files || []).map(f => `
+                                <span class="doc-pill" onclick="app.viewDocument(${d.id}, ${f.id})">
+                                  📄 ${f.file_name}
+                                </span>
+                              `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
+                            </td>
+                            <td>
+                              <div style="display:flex; gap:4px;">
+                                <button class="action-btn secondary" style="padding:2px 6px; font-size:0.75rem;" onclick="app.editDoc(${d.id})">Edit</button>
+                                ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:2px 6px; font-size:0.75rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
+                              </div>
+                            </td>
+                          </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                `}
               </div>
             </div>
           `;
@@ -2209,6 +2267,18 @@ class App {
       const sDate = document.getElementById('vehServiceDate').value;
       const sAmt = parseFloat(document.getElementById('vehServiceAmt').value) || 0;
       const desc = document.getElementById('vehDesc').value.trim();
+      const fileInput = document.getElementById('vehServiceReceiptFile');
+
+      let files = [];
+      if (fileInput && fileInput.files[0]) {
+        const dataUrl = await this.readFileAsDataURL(fileInput.files[0]);
+        files.push({
+          name: fileInput.files[0].name,
+          type: fileInput.files[0].type,
+          size: fileInput.files[0].size,
+          data: dataUrl
+        });
+      }
 
       try {
         const res = await fetch('/api/vehicles', {
@@ -2220,13 +2290,15 @@ class App {
             id: vehId,
             service_date: sDate,
             service_amount: sAmt,
-            description: desc
+            description: desc,
+            files: files
           })
         });
         const data = await res.json();
         if (data.success) {
           this.showToast(data.message || 'Vehicle service logged successfully!');
           this.closeModal('vehicleModal');
+          await this.loadDocuments();
           await this.loadVehicles();
           await this.loadBudget();
           this.renderVehiclesMenu();
@@ -2451,16 +2523,28 @@ class App {
     document.getElementById('docFileInput').value = '';
     this.renderSelectedFilesList();
 
-    const amountLabel = document.getElementById('docAmountLabel');
-    const submitBtn = document.getElementById('docSubmitBtn');
+    const catSelect = document.getElementById('docCategorySelect');
+    const updateAmountLabels = () => {
+      if (menuKey === 'property') {
+        if (amountLabel) amountLabel.innerText = 'Total Transaction Value (₹) [Record Only - Does NOT deduct from Maintenance]';
+        if (submitBtn) submitBtn.innerText = 'Save Property Record';
+      } else if (menuKey === 'bank') {
+        const catVal = catSelect.value;
+        if (catVal === 'Loan') {
+          if (amountLabel) amountLabel.innerText = 'Amount (₹) - Not Deducted from Maintenance';
+          if (submitBtn) submitBtn.innerText = 'Save Entry (Record Only)';
+        } else {
+          if (amountLabel) amountLabel.innerText = 'Amount (₹) - Deducted from Daily Maintenance';
+          if (submitBtn) submitBtn.innerText = 'Save Entry & Deduct Maintenance';
+        }
+      } else {
+        if (amountLabel) amountLabel.innerText = 'Amount (₹) - Deducted from Daily Maintenance';
+        if (submitBtn) submitBtn.innerText = 'Save Entry & Deduct Maintenance';
+      }
+    };
 
-    if (menuKey === 'property') {
-      if (amountLabel) amountLabel.innerText = 'Total Transaction Value (₹) [Record Only - Does NOT deduct from Maintenance]';
-      if (submitBtn) submitBtn.innerText = 'Save Property Record';
-    } else {
-      if (amountLabel) amountLabel.innerText = 'Amount (₹) - Deducted from Daily Maintenance';
-      if (submitBtn) submitBtn.innerText = 'Save Entry & Deduct Maintenance';
-    }
+    catSelect.onchange = updateAmountLabels;
+    updateAmountLabels();
 
     if (menuKey === 'office') {
       formFields.innerHTML = `
@@ -2485,6 +2569,7 @@ class App {
       `;
       const catSelect = document.getElementById('docCategorySelect');
       catSelect.onchange = () => {
+        updateAmountLabels();
         document.getElementById('guestFields').style.display = catSelect.value === 'Guest Maintenance' ? 'block' : 'none';
       };
     } else if (menuKey === 'travel') {
