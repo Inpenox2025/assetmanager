@@ -2239,6 +2239,7 @@ class App {
       if (kmsGroup) kmsGroup.style.display = 'block';
       document.getElementById('vehName').required = true;
       document.getElementById('vehRc').required = true;
+      document.getElementById('vehKms').required = true;
       document.getElementById('vehName').value = '';
       document.getElementById('vehRc').value = '';
       document.getElementById('vehKms').value = '';
@@ -2250,8 +2251,11 @@ class App {
       if (kmsGroup) kmsGroup.style.display = 'none';
       document.getElementById('vehName').required = false;
       document.getElementById('vehRc').required = false;
+      document.getElementById('vehKms').required = false;
       document.getElementById('vehServiceDate').value = new Date().toISOString().split('T')[0];
       document.getElementById('vehServiceAmt').value = '';
+      const receiptInput = document.getElementById('vehServiceReceiptFile');
+      if (receiptInput) receiptInput.value = '';
     }
 
     this.openModal('vehicleModal');
