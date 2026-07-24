@@ -2017,7 +2017,7 @@ class App {
     }
   }
 
-  /* Menu 6: Vehicles Menu */
+  /* Menu 6: Vehicles Menu (Side-by-side horizontal vehicle card and document table) */
   renderVehiclesMenu() {
     const main = document.getElementById('mainContent');
 
@@ -2031,8 +2031,8 @@ class App {
         </div>
       </div>
 
-      <div class="grid-cards">
-        ${this.vehicles.length === 0 ? `<div style="color:var(--text-muted); padding:30px; grid-column: 1/-1; text-align:center;">No vehicles added yet.</div>` : ''}
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        ${this.vehicles.length === 0 ? `<div style="color:var(--text-muted); padding:30px; text-align:center; background:rgba(30,41,59,0.5); border-radius:12px;">No vehicles added yet.</div>` : ''}
         ${this.vehicles.map(v => {
           const totalKms = parseInt(v.total_kms_driven || 0);
           const lastServiceKms = parseInt(v.kms_at_last_service || 0);
@@ -2064,48 +2064,54 @@ class App {
           );
 
           return `
-            <div class="data-card">
-              <div class="card-header">
-                <span class="card-title">🚘 ${v.vehicle_name}</span>
-                <span class="card-badge badge-info">${v.rc_number}</span>
+            <div style="display:flex; gap:20px; align-items:stretch; background:rgba(30,41,59,0.5); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:18px; flex-wrap:wrap;">
+              <!-- Left Side: Vehicle Overview & Actions -->
+              <div style="width:340px; min-width:290px; flex-shrink:0; display:flex; flex-direction:column; justify-content:space-between; padding-right:16px; border-right:1px solid rgba(255,255,255,0.08);">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span style="font-size:1.15rem; font-weight:700; color:white;">🚘 ${v.vehicle_name}</span>
+                    <span class="card-badge badge-info">${v.rc_number}</span>
+                  </div>
+
+                  <div style="margin-bottom:12px;">
+                    <div style="font-size:1.1rem; font-weight:700; color:white;">${totalKms.toLocaleString()} KM Driven</div>
+                    <div style="margin-top:6px;">${serviceBadge}</div>
+                  </div>
+
+                  <div style="font-size:0.85rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:14px;">
+                    <span>Tax Status: <strong>${v.tax_paid_status}</strong> (₹${v.tax_amount || 0})</span>
+                    <span>Last Service: <strong>${lastServiceFormatted}</strong></span>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px;">
+                  <button class="action-btn" style="padding:6px 10px; font-size:0.8rem; background:linear-gradient(135deg, #4f46e5, #4338ca);" onclick="app.openVehicleModal('service', ${v.id})">
+                    🔧 Log Service
+                  </button>
+                  <button class="action-btn" style="padding:6px 10px; font-size:0.8rem; background:linear-gradient(135deg, #0284c7, #0369a1);" onclick="app.openVehicleKmsModal(${v.id})">
+                    📊 Log KMs
+                  </button>
+                  <button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(234,179,8,0.2); color:#fbbf24; border:1px solid rgba(234,179,8,0.3);" onclick="app.openVehicleExpenseModal('Vehicle EMI', ${v.id})">
+                    💳 Log EMI
+                  </button>
+                  <button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.3);" onclick="app.openVehicleExpenseModal('Daily Fuel', ${v.id})">
+                    ⛽ Daily Fuel
+                  </button>
+                  ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteVehicle(${v.id})">Delete</button>` : ''}
+                </div>
               </div>
 
-              <div>
-                <div style="font-size:1.1rem; font-weight:700; color:white;">${totalKms.toLocaleString()} KM Driven</div>
-                <div style="margin-top:6px;">${serviceBadge}</div>
-              </div>
-
-              <div style="font-size:0.85rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:8px;">
-                <span>Tax Status: <strong>${v.tax_paid_status}</strong> (₹${v.tax_amount || 0})</span>
-                <span>Last Service: <strong>${lastServiceFormatted}</strong></span>
-              </div>
-
-              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; margin-bottom:14px;">
-                <button class="action-btn" style="padding:6px 10px; font-size:0.8rem; background:linear-gradient(135deg, #4f46e5, #4338ca);" onclick="app.openVehicleModal('service', ${v.id})">
-                  🔧 Log Service
-                </button>
-                <button class="action-btn" style="padding:6px 10px; font-size:0.8rem; background:linear-gradient(135deg, #0284c7, #0369a1);" onclick="app.openVehicleKmsModal(${v.id})">
-                  📊 Log KMs
-                </button>
-                <button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(234,179,8,0.2); color:#fbbf24; border:1px solid rgba(234,179,8,0.3);" onclick="app.openVehicleExpenseModal('Vehicle EMI', ${v.id})">
-                  💳 Log EMI
-                </button>
-                <button class="action-btn secondary" style="padding:6px 10px; font-size:0.8rem; background:rgba(16,185,129,0.2); color:#34d399; border:1px solid rgba(16,185,129,0.3);" onclick="app.openVehicleExpenseModal('Daily Fuel', ${v.id})">
-                  ⛽ Daily Fuel
-                </button>
-                ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:4px 10px; font-size:0.8rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteVehicle(${v.id})">Delete</button>` : ''}
-              </div>
-
-              <!-- Logged Expenses & Attached Documents History for this vehicle -->
-              <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:12px; margin-top:10px;">
-                <div style="font-size:0.88rem; font-weight:700; color:#fbbf24; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-                  📋 Logged Expenses & Document History (${vehDocs.length} Entries)
+              <!-- Right Side: Full Width Expenses & Document History Table -->
+              <div style="flex:1; min-width:320px; display:flex; flex-direction:column;">
+                <div style="font-size:0.95rem; font-weight:700; color:#fbbf24; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+                  <span>📋 Logged Expenses & Documents for ${v.vehicle_name}</span>
+                  <span style="font-size:0.8rem; color:var(--text-muted); font-weight:normal;">${vehDocs.length} Total Entries</span>
                 </div>
                 ${vehDocs.length === 0 ? `
-                  <div style="font-size:0.82rem; color:var(--text-muted); padding:6px 0;">No service, EMI, or fuel receipts logged yet.</div>
+                  <div style="font-size:0.85rem; color:var(--text-muted); padding:30px; text-align:center; background:rgba(15,23,42,0.4); border-radius:8px; flex:1; display:flex; align-items:center; justify-content:center;">No service, EMI, or fuel receipts logged for this vehicle.</div>
                 ` : `
-                  <div class="table-container" style="margin:0; overflow-x:auto;">
-                    <table class="custom-table" style="font-size:0.8rem;">
+                  <div class="table-container" style="margin:0; overflow-x:auto; max-height:280px; overflow-y:auto;">
+                    <table class="custom-table" style="font-size:0.82rem;">
                       <thead>
                         <tr>
                           <th>Date</th>
@@ -2119,7 +2125,7 @@ class App {
                       <tbody>
                         ${vehDocs.map(d => `
                           <tr>
-                            <td>${d.doc_date ? d.doc_date.split('T')[0] : ''}</td>
+                            <td><strong>${d.doc_date ? d.doc_date.split('T')[0] : ''}</strong></td>
                             <td><span class="card-badge badge-warning">${d.category}</span></td>
                             <td>${d.metadata?.notes || d.metadata?.description || d.metadata?.purpose || '—'}</td>
                             <td style="font-weight:700; color:#f87171;">₹ ${parseFloat(d.amount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
@@ -2131,9 +2137,9 @@ class App {
                               `).join('') || '<span style="color:var(--text-dim);">No file</span>'}
                             </td>
                             <td>
-                              <div style="display:flex; gap:4px;">
-                                <button class="action-btn secondary" style="padding:2px 6px; font-size:0.75rem;" onclick="app.editDoc(${d.id})">Edit</button>
-                                ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:2px 6px; font-size:0.75rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
+                              <div style="display:flex; gap:6px;">
+                                <button class="action-btn secondary" style="padding:3px 8px; font-size:0.78rem;" onclick="app.editDoc(${d.id})">Edit</button>
+                                ${this.isSuperAdmin() ? `<button class="action-btn secondary" style="padding:3px 8px; font-size:0.78rem; background:rgba(239,68,68,0.2); color:#f87171;" onclick="app.deleteDoc(${d.id})">Delete</button>` : ''}
                               </div>
                             </td>
                           </tr>
